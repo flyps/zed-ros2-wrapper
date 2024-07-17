@@ -19,6 +19,8 @@
 #include <sl/Camera.hpp>
 #include <sl/Fusion.hpp>
 #include <unordered_set>
+#include <mmdeploy/model.h>
+#include <mmdeploy/detector.hpp>
 
 #include "sl_tools.hpp"
 #include "sl_types.hpp"
@@ -233,6 +235,11 @@ protected:
   // <---- Utility functions
 
 private:
+  bool mAppleDetectorEngineLoaded = false;
+  void loadAppleDetectorEngine();
+  std::vector<sl::CustomBoxObjectData> obtainAppleDetections();
+  mmdeploy_detector_t customDetector{};
+
   // ZED SDK
   std::shared_ptr<sl::Camera> mZed;
   sl::InitParameters mInitParams;
