@@ -235,9 +235,10 @@ protected:
   // <---- Utility functions
 
 private:
-  bool mAppleDetectorEngineLoaded = false;
-  void loadAppleDetectorEngine();
-  std::vector<sl::CustomBoxObjectData> obtainAppleDetections();
+  bool mCustomDetectorEngineLoaded = false;
+  std::string mCustomDetectorEnginePath{};
+  void loadCustomDetectorEngine();
+  std::vector<sl::CustomBoxObjectData> obtainCustomDetections();
   mmdeploy_detector_t customDetector{};
 
   // ZED SDK
@@ -402,6 +403,7 @@ private:
   sl::OBJECT_DETECTION_MODEL mObjDetModel =
     sl::OBJECT_DETECTION_MODEL::MULTI_CLASS_BOX_FAST;
   sl::OBJECT_FILTERING_MODE mObjFilterMode = sl::OBJECT_FILTERING_MODE::NMS3D;
+  std::vector<int64_t> mObjDetCustomClasses;
 
   bool mBodyTrkEnabled = false;
   sl::BODY_TRACKING_MODEL mBodyTrkModel =
