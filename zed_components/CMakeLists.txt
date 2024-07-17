@@ -143,6 +143,11 @@ if(NOT ${FOUND_ROS2_DISTRO} STREQUAL "foxy")
   list(APPEND DEPENDENCIES point_cloud_transport)
 endif()
 
+set(TENSORRT_DIR "/usr/include/aarch64-linux-gnu")
+set(MMDeploy_DIR "/home/apple/mmdeploy/build/install/lib/cmake/MMDeploy")
+find_package(OpenCV REQUIRED)
+find_package(MMDeploy REQUIRED)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
@@ -216,6 +221,8 @@ target_compile_definitions(zed_camera_component
 )
 target_link_libraries(zed_camera_component
     ${ZED_LIBS}
+    mmdeploy
+    ${OpenCV_LIBS}
 )
 ament_target_dependencies(zed_camera_component
     ${DEPENDENCIES}
