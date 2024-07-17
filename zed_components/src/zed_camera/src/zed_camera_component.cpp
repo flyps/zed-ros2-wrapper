@@ -1597,7 +1597,7 @@ void ZedCamera::getOdParams()
   bool matched = false;
   for (int idx =
     static_cast<int>(sl::OBJECT_DETECTION_MODEL::MULTI_CLASS_BOX_FAST);
-    idx < static_cast<int>(sl::OBJECT_DETECTION_MODEL::CUSTOM_BOX_OBJECTS);
+    idx < static_cast<int>(sl::OBJECT_DETECTION_MODEL::LAST);
     idx++)
   {
     sl::OBJECT_DETECTION_MODEL test_model =
@@ -8018,6 +8018,19 @@ void ZedCamera::processDetectedObjects(rclcpp::Time t)
 
   sl::Objects objects;
 
+  // Manual inference of the custom object detector
+  if(mObjDetModel == sl::OBJECT_DETECTION_MODEL::CUSTOM_BOX_OBJECTS) {
+      if(!mAppleDetectorEngineLoaded) {
+          loadAppleDetectorEngine();
+          mAppleDetectorEngineLoaded = true;
+      }
+      auto objects_in = obtainAppleDetections();
+      // Print the number of detected objects
+      RCLCPP_WARN_STREAM(get_logger(), "Detected " << objects_in.size() << " apples.");
+      // Send the custom detected boxes to the ZED SDK
+      mZed->ingestCustomBoxObjects(objects_in, mObjDetInstID);
+  }
+
   sl::ERROR_CODE objDetRes = mZed->retrieveObjects(
     objects, objectTracker_parameters_rt, mObjDetInstID);
 
@@ -10852,6 +10865,76 @@ void ZedCamera::stopStreamingServer()
   mStreamingServerRunning = false;
   mStreamingServerRequired = false;
 }
+
+    void ZedCamera::loadAppleDetectorEngine() {
+        std::string modelFile = "/home/apple/models"; // TODO(mbed): make this a parameter
+        auto status = mmdeploy_detector_create_by_path(modelFile.c_str(), "cuda", 0, &customDetector);
+        if (status != MMDEPLOY_SUCCESS) {
+            RCLCPP_ERROR_STREAM(get_logger(), "Failed to load Apple detector engine at: " << modelFile);
+            return;
+        }
+        RCLCPP_INFO_STREAM(get_logger(), "Loaded Apple detector engine at: " << modelFile);
+    }
+
+    std::vector<sl::CustomBoxObjectData> ZedCamera::obtainAppleDetections() {
+
+        // Preparing for ZED SDK ingesting
+        std::vector<sl::CustomBoxObjectData> objects_in;
+
+        // obtain RGB image from the left camera
+        auto mMatHeight = static_cast<int>(mMatLeft.getHeight());
+        auto mMatWidth = static_cast<int>(mMatLeft.getWidth());
+        auto mMatChannels = static_cast<int>(mMatLeft.getChannels());
+        auto mMatData = mMatLeft.getPtr<sl::uchar1>(sl::MEM::CPU);
+        if (mMatData == nullptr) {
+            RCLCPP_WARN(get_logger(), "Failed to obtain image data from the left camera. Skipping inference.");
+            return objects_in;
+        }
+        mmdeploy_mat_t mat{ mMatData, mMatHeight, mMatWidth, mMatChannels,
+                            MMDEPLOY_PIXEL_FORMAT_BGRA, MMDEPLOY_DATA_TYPE_UINT8};
+
+        mmdeploy_detection_t* detections{};
+        int* res_count{};
+
+        auto inference_status = mmdeploy_detector_apply(customDetector, &mat, 1, &detections, &res_count);
+        if (inference_status != MMDEPLOY_SUCCESS) {
+            RCLCPP_WARN(get_logger(), "Failed to run inference on the Apple detector engine");
+        } else {
+            for (int i = 0; i < *res_count; ++i) {
+                const auto& det = detections[i];
+
+                // skip detections with invalid bbox size (bbox height or width < 1)
+                if ((det.bbox.right - det.bbox.left) < 1 || (det.bbox.bottom - det.bbox.top) < 1) {
+                    continue;
+                }
+
+                // skip detections less than specified score threshold
+                // TODO(mbed): make this a parameter
+                if (det.score < 0.5) {
+                    continue;
+                }
+
+                // make sure the label is in the desired subset
+                if(det.label_id
+
+                // Fill the detections into the correct format
+                sl::CustomBoxObjectData tmp;
+                tmp.unique_object_id = sl::generate_unique_id();
+                tmp.probability = det.score;
+                tmp.label = (int) det.label_id;
+                tmp.bounding_box_2d = {
+                        sl::uint2(det.bbox.top, det.bbox.left),
+                        sl::uint2(det.bbox.top, det.bbox.right),
+                        sl::uint2(det.bbox.bottom, det.bbox.right),
+                        sl::uint2(det.bbox.bottom, det.bbox.left),
+                };
+                tmp.is_grounded = false;
+                objects_in.push_back(tmp);
+            }
+            mmdeploy_detector_release_result(detections, res_count, 1);
+        }
+        return objects_in;
+    }
 }  // namespace stereolabs
 
 #include "rclcpp_components/register_node_macro.hpp"
