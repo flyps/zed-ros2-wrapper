@@ -22,7 +22,7 @@
             serial_number: 0 # usually overwritten by launch file
             pub_resolution: "NATIVE" # The resolution used for output. 'NATIVE' to use the same `general.grab_resolution` - `CUSTOM` to apply the `general.pub_downscale_factor` downscale factory to reduce bandwidth in transmission
             pub_downscale_factor: 2.0 # rescale factor used to rescale image before publishing when 'pub_resolution' is 'CUSTOM'
-            pub_frame_rate: 30.0 # frequency of publishing of visual images and depth images
+            pub_frame_rate: 1.0 # frequency of publishing of visual images and depth images
             gpu_id: -1
             optional_opencv_calibration_file: "" # Optional path where the ZED SDK can find a file containing the calibration information of the camera computed by OpenCV. Read the ZED SDK documentation for more information: https://www.stereolabs.com/docs/api/structsl_1_1InitParameters.html#a9eab2753374ef3baec1d31960859ba19
 
@@ -57,7 +57,7 @@
             depth_mode: "ULTRA" # Matches the ZED SDK setting: 'NONE', 'PERFORMANCE', 'QUALITY', 'ULTRA', 'NEURAL', 'NEURAL_PLUS' - Note: if 'NONE' all the modules that requires depth extraction are disabled by default (Pos. Tracking, Obj. Detection, Mapping, ...)
             depth_stabilization: 1 # Forces positional tracking to start if major than 0 - Range: [0,100]
             openni_depth_mode: false # 'false': 32bit float [meters], 'true': 16bit unsigned int [millimeters]
-            point_cloud_freq: 10.0 # [DYNAMIC] - frequency of the pointcloud publishing (equal or less to `grab_frame_rate` value)
+            point_cloud_freq: 1.0 # [DYNAMIC] - frequency of the pointcloud publishing (equal or less to `grab_frame_rate` value)
             depth_confidence: 50 # [DYNAMIC]
             depth_texture_conf: 100 # [DYNAMIC]
             remove_saturated_areas: true # [DYNAMIC]
@@ -114,20 +114,15 @@
             sensors_pub_rate: 200. # frequency of publishing of sensors data. MAX: 400. - MIN: grab rate
 
         object_detection:
-            od_enabled: false # True to enable Object Detection
-            model: "MULTI_CLASS_BOX_MEDIUM" # 'MULTI_CLASS_BOX_FAST', 'MULTI_CLASS_BOX_MEDIUM', 'MULTI_CLASS_BOX_ACCURATE', 'PERSON_HEAD_BOX_FAST', 'PERSON_HEAD_BOX_ACCURATE'
+            od_enabled: true # True to enable Object Detection
+            model: "CUSTOM_BOX_OBJECTS" # 'MULTI_CLASS_BOX_FAST', 'MULTI_CLASS_BOX_MEDIUM', 'MULTI_CLASS_BOX_ACCURATE', 'PERSON_HEAD_BOX_FAST', 'PERSON_HEAD_BOX_ACCURATE', 'CUSTOM_BOX_OBJECTS'
             allow_reduced_precision_inference: true # Allow inference to run at a lower precision to improve runtime and memory usage
-            max_range: 20.0 # [m] Defines a upper depth range for detections
+            max_range: 5.0 # [m] Defines a upper depth range for detections
             confidence_threshold: 50.0 # [DYNAMIC] - Minimum value of the detection confidence of an object [0,99]
             prediction_timeout: 0.5 # During this time [sec], the object will have OK state even if it is not detected. Set this parameter to 0 to disable SDK predictions
             filtering_mode: 1 # '0': NONE - '1': NMS3D - '2': NMS3D_PER_CLASS
-            mc_people: true # [DYNAMIC] - Enable/disable the detection of persons for 'MULTI_CLASS_X' models
-            mc_vehicle: true # [DYNAMIC] - Enable/disable the detection of vehicles for 'MULTI_CLASS_X' models
-            mc_bag: true # [DYNAMIC] - Enable/disable the detection of bags for 'MULTI_CLASS_X' models
-            mc_animal: true # [DYNAMIC] - Enable/disable the detection of animals for 'MULTI_CLASS_X' models
-            mc_electronics: true # [DYNAMIC] - Enable/disable the detection of electronic devices for 'MULTI_CLASS_X' models
-            mc_fruit_vegetable: true # [DYNAMIC] - Enable/disable the detection of fruits and vegetables for 'MULTI_CLASS_X' models
-            mc_sport: true # [DYNAMIC] - Enable/disable the detection of sport-related objects for 'MULTI_CLASS_X' models
+            mc_custom_classes: [0, 47] # [DYNAMIC] - Specify list of retrieved classes for 'CUSTOM_BOX_OBJECTS' model. For IDs see: https://github.com/ultralytics/yolov5/blob/master/data/coco.yaml
+            # object_tracking_enabled: false # TODO(mbed): Implement object tracking when needed
 
         body_tracking:
             bt_enabled: false # True to enable Body Tracking
