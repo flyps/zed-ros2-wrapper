@@ -1632,6 +1632,9 @@ void ZedCamera::getOdParams()
     " * Object Det. allow reduced precision: "
       << (mObjDetReducedPrecision ? "TRUE" : "FALSE"));
   getParam(
+    "object_detection.custom_trt_engine_folder", mCustomDetectorEnginePath, mCustomDetectorEnginePath,
+    " * Object Det. custom TRT engine folder: ");
+  getParam(
     "object_detection.max_range", mObjDetMaxRange, mObjDetMaxRange,
     " * Object Det. maximum range [m]: ");
   getParam(
@@ -1654,6 +1657,28 @@ void ZedCamera::getOdParams()
     get_logger(), " * Object Filtering mode: "
       << filtering_mode << " - "
       << sl::toString(mObjFilterMode).c_str());
+
+  // define custom classes
+  std::string paramName = "object_detection.mc_custom_classes";
+  declare_parameter(paramName, rclcpp::PARAMETER_INTEGER_ARRAY, read_only_descriptor);
+  rclcpp::Parameter mObjDetCustomClasses_param = get_parameter(paramName);
+  mObjDetCustomClasses = mObjDetCustomClasses_param.as_integer_array();
+
+  if(!mObjDetCustomClasses.empty()) {
+    RCLCPP_INFO_STREAM(
+      get_logger(),
+      " * MultiClassCustomClasses: " << mObjDetCustomClasses.size());
+    for (auto &custom_class : mObjDetCustomClasses) {
+    RCLCPP_INFO_STREAM(
+      get_logger(),
+      " * MultiClassCustomClasses: " << custom_class);
+    }
+  } else {
+    RCLCPP_INFO_STREAM(
+      get_logger(),
+      " * MultiClassCustomClasses: No custom classes defined");
+  }
+
   getParam(
     "object_detection.mc_people", mObjDetPeopleEnable,
     mObjDetPeopleEnable, "", true);
@@ -8020,15 +8045,17 @@ void ZedCamera::processDetectedObjects(rclcpp::Time t)
 
   // Manual inference of the custom object detector
   if(mObjDetModel == sl::OBJECT_DETECTION_MODEL::CUSTOM_BOX_OBJECTS) {
-      if(!mAppleDetectorEngineLoaded) {
-          loadAppleDetectorEngine();
-          mAppleDetectorEngineLoaded = true;
+      if(!mCustomDetectorEngineLoaded) {
+          loadCustomDetectorEngine();
+          mCustomDetectorEngineLoaded = true;
       }
-      auto objects_in = obtainAppleDetections();
-      // Print the number of detected objects
-      RCLCPP_WARN_STREAM(get_logger(), "Detected " << objects_in.size() << " apples.");
+      auto objects_in = obtainCustomDetections();
+
       // Send the custom detected boxes to the ZED SDK
-      mZed->ingestCustomBoxObjects(objects_in, mObjDetInstID);
+      if(mZed->ingestCustomBoxObjects(objects_in, mObjDetInstID) != sl::ERROR_CODE::SUCCESS) {
+        RCLCPP_WARN_STREAM(get_logger(), "Error while ingesting custom objects. Skipping this frame.");
+        return;
+      }
   }
 
   sl::ERROR_CODE objDetRes = mZed->retrieveObjects(
@@ -10866,17 +10893,16 @@ void ZedCamera::stopStreamingServer()
   mStreamingServerRequired = false;
 }
 
-    void ZedCamera::loadAppleDetectorEngine() {
-        std::string modelFile = "/home/apple/models"; // TODO(mbed): make this a parameter
-        auto status = mmdeploy_detector_create_by_path(modelFile.c_str(), "cuda", 0, &customDetector);
+    void ZedCamera::loadCustomDetectorEngine() {
+        auto status = mmdeploy_detector_create_by_path(mCustomDetectorEnginePath.c_str(), "cuda", 0, &customDetector);
         if (status != MMDEPLOY_SUCCESS) {
-            RCLCPP_ERROR_STREAM(get_logger(), "Failed to load Apple detector engine at: " << modelFile);
+            RCLCPP_ERROR_STREAM(get_logger(), "Failed to load CUSTOM_BOX_OBJECTS detector engine from: " << mCustomDetectorEnginePath);
             return;
         }
-        RCLCPP_INFO_STREAM(get_logger(), "Loaded Apple detector engine at: " << modelFile);
+        RCLCPP_INFO_STREAM(get_logger(), "Loaded CUSTOM_BOX_OBJECTS detector engine from: " << mCustomDetectorEnginePath);
     }
 
-    std::vector<sl::CustomBoxObjectData> ZedCamera::obtainAppleDetections() {
+    std::vector<sl::CustomBoxObjectData> ZedCamera::obtainCustomDetections() {
 
         // Preparing for ZED SDK ingesting
         std::vector<sl::CustomBoxObjectData> objects_in;
@@ -10898,40 +10924,42 @@ void ZedCamera::stopStreamingServer()
 
         auto inference_status = mmdeploy_detector_apply(customDetector, &mat, 1, &detections, &res_count);
         if (inference_status != MMDEPLOY_SUCCESS) {
-            RCLCPP_WARN(get_logger(), "Failed to run inference on the Apple detector engine");
+            RCLCPP_WARN(get_logger(), "Failed to run inference on the CUSTOM_BOX_OBJECTS detector. Skipping.");
         } else {
             for (int i = 0; i < *res_count; ++i) {
                 const auto& det = detections[i];
+
+                // make sure the label is in mObjDetCustomClasses or get all classes if mObjDetCustomClasses is empty
+                if (!mObjDetCustomClasses.empty() && std::find(mObjDetCustomClasses.begin(),
+                                                               mObjDetCustomClasses.end(),
+                                                               det.label_id) == mObjDetCustomClasses.end()) {
+                    continue;
+                }
+
+                // skip detections less than specified score threshold
+                auto confidence_th = mObjDetConfidence / 100.f; // [0, 99] -> [0, 0.99]
+                if (det.score < confidence_th) {
+                    continue;
+                }
 
                 // skip detections with invalid bbox size (bbox height or width < 1)
                 if ((det.bbox.right - det.bbox.left) < 1 || (det.bbox.bottom - det.bbox.top) < 1) {
                     continue;
                 }
 
-                // skip detections less than specified score threshold
-                // TODO(mbed): make this a parameter
-                if (det.score < 0.5) {
-                    continue;
-                }
-
-                // make sure the label is in the desired subset
-                if(det.label_id
-
                 // Fill the detections into the correct format
                 sl::CustomBoxObjectData tmp;
                 tmp.unique_object_id = sl::generate_unique_id();
                 tmp.probability = det.score;
-                tmp.label = (int) det.label_id;
-                tmp.bounding_box_2d = {
-                        sl::uint2(det.bbox.top, det.bbox.left),
-                        sl::uint2(det.bbox.top, det.bbox.right),
-                        sl::uint2(det.bbox.bottom, det.bbox.right),
-                        sl::uint2(det.bbox.bottom, det.bbox.left),
-                };
+                tmp.label = det.label_id;
+                tmp.bounding_box_2d = std::vector<sl::uint2>(4);
+                tmp.bounding_box_2d[0] = sl::uint2(det.bbox.left, det.bbox.top);
+                tmp.bounding_box_2d[1] = sl::uint2(det.bbox.right, det.bbox.top);
+                tmp.bounding_box_2d[2] = sl::uint2(det.bbox.right, det.bbox.bottom);
+                tmp.bounding_box_2d[3] = sl::uint2(det.bbox.left, det.bbox.bottom);
                 tmp.is_grounded = false;
                 objects_in.push_back(tmp);
             }
-            mmdeploy_detector_release_result(detections, res_count, 1);
         }
         return objects_in;
     }
