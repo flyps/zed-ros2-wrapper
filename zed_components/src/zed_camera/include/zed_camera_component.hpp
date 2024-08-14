@@ -19,6 +19,8 @@
 #include <sl/Camera.hpp>
 #include <sl/Fusion.hpp>
 #include <unordered_set>
+#include <mmdeploy/model.h>
+#include <mmdeploy/detector.hpp>
 
 #include "sl_tools.hpp"
 #include "sl_types.hpp"
@@ -232,6 +234,12 @@ protected:
   // <---- Utility functions
 
 private:
+  bool mCustomDetectorEngineLoaded = false;
+  std::string mCustomDetectorEnginePath{};
+  void loadCustomDetectorEngine();
+  std::vector<sl::CustomBoxObjectData> obtainCustomDetections();
+  mmdeploy_detector_t customDetector{};
+
   // ZED SDK
   std::shared_ptr<sl::Camera> mZed;
   sl::InitParameters mInitParams;
@@ -394,6 +402,7 @@ private:
   sl::OBJECT_DETECTION_MODEL mObjDetModel =
     sl::OBJECT_DETECTION_MODEL::MULTI_CLASS_BOX_FAST;
   sl::OBJECT_FILTERING_MODE mObjFilterMode = sl::OBJECT_FILTERING_MODE::NMS3D;
+  std::vector<int64_t> mObjDetCustomClasses;
 
   bool mBodyTrkEnabled = false;
   sl::BODY_TRACKING_MODEL mBodyTrkModel =
