@@ -39,12 +39,13 @@ x-common: &common
 
 
 services:
-  jablka_zedx_streamer:
+  jablka_zedx_streamer_recorder:
     <<: *common
-    image: jablka-zedx-l4t:latest
-    container_name: jablka-zedx-l4t-streamer
-    command: "bash -c 'source /ros2_ws/install/setup.bash && ros2 launch zed_wrapper stream_topics.launch.py camera_config:='zedx_dataset_collector.yaml' && bash /ros2_ws/src/record_bags.sh"
+    image: jablka-zedx-l4t:with_streamer_deps
+    container_name: jablka-zedx-l4t-streamer-recorder
+    command: "bash /ros2_ws/src/zed-ros2-wrapper/zed_wrapper/start_bag_recording.sh"
     privileged: true
+    runtime: nvidia
 
     # append paths required for the package
     volumes:
@@ -53,7 +54,8 @@ services:
       - /var/nvidia/nvcam/settings/:/var/nvidia/nvcam/settings/ # for GMSL2
       - /etc/systemd/system/zed_x_daemon.service:/etc/systemd/system/zed_x_daemon.service # for GMSL2
       - /usr/local/zed/resources/:/usr/local/zed/resources/ # for AI module
-      - /home/user/Projects/jablka_main/jablka_sensors/zed-ros2-wrapper/zed-ros2-interfaces:/root/ros2_ws/src/zed-ros2-interfaces
-      - /home/user/Projects/jablka_main/jablka_sensors/zed-ros2-wrapper/zed_components:/root/ros2_ws/src/zed_components
-      - /home/user/Projects/jablka_main/jablka_sensors/zed-ros2-wrapper/zed_ros2:/root/ros2_ws/src/zed_ros2
-      - /home/user/Projects/jablka_main/jablka_sensors/zed-ros2-wrapper/zed_wrapper:/root/ros2_ws/src/zed_wrapper
+      - /home/user/Projects/jablka_main/jablka_sensors/submodules/zed-ros2-wrapper/zed-ros2-interfaces:/ros2_ws/src/zed-ros2-wrapper/zed-ros2-interfaces
+      - /home/user/Projects/jablka_main/jablka_sensors/submodules/zed-ros2-wrapper/zed_components:/ros2_ws/src/zed-ros2-wrapper/zed_components
+      - /home/user/Projects/jablka_main/jablka_sensors/submodules/zed-ros2-wrapper/zed_ros2:/ros2_ws/src/zed-ros2-wrapper/zed_ros2
+      - /home/user/Projects/jablka_main/jablka_sensors/submodules/zed-ros2-wrapper/zed_wrapper:/ros2_ws/src/zed-ros2-wrapper/zed_wrapper
+      - /home/user/Projects/jablka_main/jablka_sensors/bag_recordings:/ros2_ws/bags # For bag recordings
