@@ -1,0 +1,59 @@
+version: '3.9'
+
+x-common: &common
+  restart: unless-stopped
+
+  volumes:
+    - "/tmp/.X11-unix:/tmp/.X11-unix:rw"
+    - "$HOME/.Xauthority:/root/.Xauthority:rw"
+    - "/usr/lib64:/usr/hostLib64:ro"
+    - "/dev:/dev:rw"
+    - "/var/run/dbus:/var/run/dbus:rw"
+
+  # Environmental variables
+  environment:
+    - DISPLAY
+    - QT_X11_NO_MITSHM=1
+    - QT_GRAPHICSSYSTEM=native
+    - LD_LIBRARY_PATH=/usr/hostLib64
+
+  # Network
+  network_mode: host
+  ipc: host
+  pid: host
+
+  # Memory
+  shm_size: 16g
+  ulimits:
+    memlock: -1
+  memswap_limit: -1
+
+  # GPU
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [ gpu ]
+
+
+services:
+  jablka_zedx_streamer:
+    <<: *common
+    image: jablka-zedx-l4t:latest
+    container_name: jablka-zedx-l4t-streamer
+    command: "bash -c 'source /ros2_ws/install/setup.bash && ros2 launch zed_wrapper stream_topics.launch.py camera_config:='zedx_dataset_collector.yaml' && bash /ros2_ws/src/record_bags.sh"
+    privileged: true
+
+    # append paths required for the package
+    volumes:
+      - /dev:/dev # share video devices
+      - /tmp:/tmp # for GMSL2
+      - /var/nvidia/nvcam/settings/:/var/nvidia/nvcam/settings/ # for GMSL2
+      - /etc/systemd/system/zed_x_daemon.service:/etc/systemd/system/zed_x_daemon.service # for GMSL2
+      - /usr/local/zed/resources/:/usr/local/zed/resources/ # for AI module
+      - /home/user/Projects/jablka_main/jablka_sensors/zed-ros2-wrapper/zed-ros2-interfaces:/root/ros2_ws/src/zed-ros2-interfaces
+      - /home/user/Projects/jablka_main/jablka_sensors/zed-ros2-wrapper/zed_components:/root/ros2_ws/src/zed_components
+      - /home/user/Projects/jablka_main/jablka_sensors/zed-ros2-wrapper/zed_ros2:/root/ros2_ws/src/zed_ros2
+      - /home/user/Projects/jablka_main/jablka_sensors/zed-ros2-wrapper/zed_wrapper:/root/ros2_ws/src/zed_wrapper
