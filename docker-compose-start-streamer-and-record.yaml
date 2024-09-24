@@ -41,7 +41,7 @@ x-common: &common
 services:
   jablka_zedx_streamer_recorder:
     <<: *common
-    image: jablka-zedx-l4t:with_streamer_deps
+    image: jablka-zedx-l4t:latest
     container_name: jablka-zedx-l4t-streamer-recorder
     command: "bash /ros2_ws/src/zed-ros2-wrapper/zed_wrapper/start_bag_recording.sh"
     privileged: true
