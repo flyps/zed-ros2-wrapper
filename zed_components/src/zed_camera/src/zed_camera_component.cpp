@@ -60,8 +60,6 @@ namespace stereolabs
 const double DEG2RAD = 0.017453293;
 const double RAD2DEG = 57.295777937;
 
-const sl::COORDINATE_SYSTEM ROS_COORDINATE_SYSTEM =
-  sl::COORDINATE_SYSTEM::RIGHT_HANDED_Z_UP_X_FWD;
 const sl::UNIT ROS_MEAS_UNITS = sl::UNIT::METER;
 
 const int QOS_QUEUE_SIZE = 10;
@@ -3900,7 +3898,26 @@ bool ZedCamera::startCamera()
     }
   }
 
-  mInitParams.coordinate_system = ROS_COORDINATE_SYSTEM;
+    uint16_t rosCoordSys = 0;
+    getParam("init.coordinate_system", rosCoordSys, rosCoordSys);
+    if (rosCoordSys == 0) {
+        mCoordSys = sl::COORDINATE_SYSTEM::IMAGE;
+    } else if (rosCoordSys == 1) {
+        mCoordSys = sl::COORDINATE_SYSTEM::LEFT_HANDED_Y_UP;
+    } else if (rosCoordSys == 2) {
+        mCoordSys = sl::COORDINATE_SYSTEM::LEFT_HANDED_Z_UP;
+    } else if (rosCoordSys == 3) {
+        mCoordSys = sl::COORDINATE_SYSTEM::RIGHT_HANDED_Y_UP;
+    } else if (rosCoordSys == 4) {
+        mCoordSys = sl::COORDINATE_SYSTEM::RIGHT_HANDED_Z_UP;
+    } else if (rosCoordSys == 5) {
+        mCoordSys = sl::COORDINATE_SYSTEM::RIGHT_HANDED_Z_UP_X_FWD;
+    } else {
+        RCLCPP_WARN(get_logger(), "Invalid coordinate system. Using default value.");
+        mCoordSys = sl::COORDINATE_SYSTEM::IMAGE;
+    }
+
+  mInitParams.coordinate_system = mCoordSys;
   mInitParams.coordinate_units = ROS_MEAS_UNITS;
   mInitParams.depth_mode = mDepthMode;
   mInitParams.sdk_verbose = mVerbose;
@@ -4620,7 +4637,7 @@ bool ZedCamera::startCamera()
     // ----> Initialize Fusion module
 
     // Fusion parameters
-    mFusionInitParams.coordinate_system = ROS_COORDINATE_SYSTEM;
+    mFusionInitParams.coordinate_system = mCoordSys;
     mFusionInitParams.coordinate_units = ROS_MEAS_UNITS;
     mFusionInitParams.verbose = mVerbose != 0;
     mFusionInitParams.output_performance_metrics = true;

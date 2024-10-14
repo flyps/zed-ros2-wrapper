@@ -15,6 +15,15 @@
             svo_loop: false # Enable loop mode when using an SVO as input source
             svo_realtime: true # if true the SVO will be played trying to respect the original framerate eventually skipping frames, otherwise every frame will be processed respecting the `pub_frame_rate` setting
 
+        init:
+            # 0 - IMAGE
+            # 1 - LEFT_HANDED_Y_UP
+            # 2 - LEFT_HANDED_Z_UP
+            # 3 - RIGHT_HANDED_Y_UP
+            # 4 - RIGHT_HANDED_Z_UP
+            # 5 - RIGHT_HANDED_Z_UP_X_FWD
+            coordinate_system: 0 # https://www.stereolabs.com/docs/positional-tracking/coordinate-frames#selecting-a-coordinate-system
+
         general:
             camera_timeout_sec: 5
             camera_max_reconnect: 5
