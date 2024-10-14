@@ -242,6 +242,7 @@ private:
   mmdeploy_detector_t customDetector{};
 
   // ZED SDK
+  sl::COORDINATE_SYSTEM mCoordSys = sl::COORDINATE_SYSTEM::IMAGE;
   std::shared_ptr<sl::Camera> mZed;
   sl::InitParameters mInitParams;
   sl::RuntimeParameters mRunParams;
