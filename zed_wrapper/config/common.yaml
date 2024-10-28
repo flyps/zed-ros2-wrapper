@@ -126,7 +126,7 @@
             od_enabled: true # True to enable Object Detection
             allow_reduced_precision_inference: true # Allow inference to run at a lower precision to improve runtime and memory usage
             model: "CUSTOM_BOX_OBJECTS" # 'MULTI_CLASS_BOX_FAST', 'MULTI_CLASS_BOX_MEDIUM', 'MULTI_CLASS_BOX_ACCURATE', 'PERSON_HEAD_BOX_FAST', 'PERSON_HEAD_BOX_ACCURATE', 'CUSTOM_BOX_OBJECTS'
-            max_range: 5.0 # [m] Defines a upper depth range for detections
+            max_range: 3.0 # [m] Defines a upper depth range for detections
             confidence_threshold: 50.0 # [DYNAMIC] - Minimum value of the detection confidence of an object [0,99]
             prediction_timeout: 0.5 # During this time [sec], the object will have OK state even if it is not detected. Set this parameter to 0 to disable SDK predictions
             filtering_mode: 1 # '0': NONE - '1': NMS3D - '2': NMS3D_PER_CLASS
@@ -137,7 +137,9 @@
             mc_electronics: false # [DYNAMIC] - Enable/disable the detection of electronic devices for 'MULTI_CLASS_X' models
             mc_fruit_vegetable: false # [DYNAMIC] - Enable/disable the detection of fruits and vegetables for 'MULTI_CLASS_X' models
             mc_sport: false # [DYNAMIC] - Enable/disable the detection of sport-related objects for 'MULTI_CLASS_X' models
-            mc_custom_classes: [47] # [DYNAMIC] - Specify list of retrieved classes for 'CUSTOM_BOX_OBJECTS' model. Leave empty to get all classes. For IDs see: https://github.com/ultralytics/yolov5/blob/master/data/coco.yaml
+            # [DYNAMIC] - Specify list of retrieved classes for 'CUSTOM_BOX_OBJECTS' model.
+            # Leave [""] to get all classes. For IDs see: https://github.com/ultralytics/yolov5/blob/master/data/coco.yaml
+            mc_custom_classes: ["47"]
             object_tracking_enabled: true
             custom_trt_engine_folder: "/home/apple/workdir"
 

@@ -1672,19 +1672,23 @@ void ZedCamera::getOdParams()
       << sl::toString(mObjFilterMode).c_str());
 
   // define custom classes
+  // TODO(mbed): workaround to handle empty arguments in YAML issue: https://github.com/ros2/rclcpp/issues/1955
   std::string paramName = "object_detection.mc_custom_classes";
-  declare_parameter(paramName, rclcpp::PARAMETER_INTEGER_ARRAY, read_only_descriptor);
-  rclcpp::Parameter mObjDetCustomClasses_param = get_parameter(paramName);
-  mObjDetCustomClasses = mObjDetCustomClasses_param.as_integer_array();
-
-  if(!mObjDetCustomClasses.empty()) {
-    RCLCPP_INFO_STREAM(
-      get_logger(),
-      " * MultiClassCustomClasses: " << mObjDetCustomClasses.size());
-    for (auto &custom_class : mObjDetCustomClasses) {
-    RCLCPP_INFO_STREAM(
-      get_logger(),
-      " * MultiClassCustomClasses: " << custom_class);
+  auto stringClasses = declare_parameter<std::vector<std::string>>(paramName, {""});
+  //TODO(mbed): workaround to handle default constructed values in empty params: https://github.com/ros2/rclcpp/issues/1955
+  stringClasses = filterDefaultConstructedElements(stringClasses);
+  if(!stringClasses.empty()) {
+    for (auto &custom_class : stringClasses) {
+        try {
+          mObjDetCustomClasses.push_back(std::stoi(custom_class));
+          RCLCPP_INFO_STREAM(
+            get_logger(),
+              " * MultiClassCustomClasses: " << custom_class);
+        } catch (std::invalid_argument const &e) {
+          RCLCPP_WARN_STREAM(
+            get_logger(),
+              "The value of the parameter 'object_detection.mc_custom_classes' is not valid: '" << custom_class);
+        }
     }
   } else {
     RCLCPP_INFO_STREAM(

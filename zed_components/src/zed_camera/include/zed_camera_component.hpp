@@ -37,6 +37,23 @@ public:
 
   virtual ~ZedCamera();
 
+  // Adapted from https://github.com/RobotecAI/ROSCon2023Demo/pull/141/files
+  // to fix the following error: https://github.com/ros2/rclcpp/issues/1955
+  template<typename Container>
+  Container filterDefaultConstructedElements(const Container& container) {
+    Container filteredContainer;
+    using T = typename Container::value_type;
+    std::copy_if(
+      container.begin(),
+      container.end(),
+      std::back_inserter(filteredContainer),
+      [](const T element){
+          return element != T();
+      });
+
+      return filteredContainer;
+  }
+
 protected:
   // ----> Initialization functions
   void initParameters();
@@ -403,7 +420,7 @@ private:
   sl::OBJECT_DETECTION_MODEL mObjDetModel =
     sl::OBJECT_DETECTION_MODEL::MULTI_CLASS_BOX_FAST;
   sl::OBJECT_FILTERING_MODE mObjFilterMode = sl::OBJECT_FILTERING_MODE::NMS3D;
-  std::vector<int64_t> mObjDetCustomClasses;
+  std::vector<int64_t> mObjDetCustomClasses{};
 
   bool mBodyTrkEnabled = false;
   sl::BODY_TRACKING_MODEL mBodyTrkModel =
