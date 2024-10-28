@@ -8124,8 +8124,13 @@ void ZedCamera::processDetectedObjects(rclcpp::Time t)
 
   size_t idx = 0;
   for (auto data : objects.object_list) {
-    objMsg->objects[idx].label = sl::toString(data.label).c_str();
-    objMsg->objects[idx].sublabel = sl::toString(data.sublabel).c_str();
+    if(mCustomDetectorEngineLoaded) {
+        objMsg->objects[idx].label = std::to_string(data.raw_label);
+        objMsg->objects[idx].sublabel = "Obj" + std::to_string(data.raw_label) + "_id" + std::to_string(data.id);
+    } else {
+        objMsg->objects[idx].label = sl::toString(data.label).c_str();
+        objMsg->objects[idx].sublabel = sl::toString(data.sublabel).c_str();
+    }
     objMsg->objects[idx].label_id = data.id;
     objMsg->objects[idx].confidence = data.confidence;
 
