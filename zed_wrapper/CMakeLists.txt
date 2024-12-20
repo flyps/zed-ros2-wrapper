@@ -89,7 +89,7 @@ find_package(rclcpp_components REQUIRED)
 find_package(rcutils REQUIRED)
 
 set(TENSORRT_DIR "/usr/include/aarch64-linux-gnu")
-set(MMDeploy_DIR "/home/apple/mmdeploy/build/install/lib/cmake/MMDeploy")
+set(MMDeploy_DIR "/jablka_openmm/submodules/mmdeploy/build/install/lib/cmake/MMDeploy")
 find_package(OpenCV REQUIRED)
 find_package(MMDeploy REQUIRED)
 

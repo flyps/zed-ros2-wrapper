@@ -144,7 +144,7 @@ if(NOT ${FOUND_ROS2_DISTRO} STREQUAL "foxy")
 endif()
 
 set(TENSORRT_DIR "/usr/include/aarch64-linux-gnu")
-set(MMDeploy_DIR "/home/apple/mmdeploy/build/install/lib/cmake/MMDeploy")
+set(MMDeploy_DIR "/jablka_openmm/submodules/mmdeploy/build/install/lib/cmake/MMDeploy")
 find_package(OpenCV REQUIRED)
 find_package(MMDeploy REQUIRED)
 
