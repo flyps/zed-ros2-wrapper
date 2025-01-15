@@ -6901,6 +6901,7 @@ bool ZedCamera::areVideoDepthSubscribed()
   mConfMapSubnumber = 0;
   mDisparitySubnumber = 0;
   mDepthInfoSubnumber = 0;
+  mObjDetSubnumber = 0;
 
   try {
     mRgbSubnumber = mPubRgb.getNumSubscribers();
@@ -6917,6 +6918,7 @@ bool ZedCamera::areVideoDepthSubscribed()
     mRightGrayRawSubnumber = mPubRawRightGray.getNumSubscribers();
     mStereoSubnumber = mPubStereo.getNumSubscribers();
     mStereoRawSubnumber = mPubRawStereo.getNumSubscribers();
+    mObjDetSubnumber = count_subscribers(mPubObjDet->get_topic_name());
 
     if (!mDepthDisabled) {
       mDepthSubnumber = mPubDepth.getNumSubscribers();
@@ -6935,7 +6937,8 @@ bool ZedCamera::areVideoDepthSubscribed()
          mLeftGraySubnumber + mLeftGrayRawSubnumber + mRightSubnumber +
          mRightRawSubnumber + mRightGraySubnumber + mRightGrayRawSubnumber +
          mStereoSubnumber + mStereoRawSubnumber + mDepthSubnumber +
-         mConfMapSubnumber + mDisparitySubnumber + mDepthInfoSubnumber) > 0;
+         mConfMapSubnumber + mDisparitySubnumber + mDepthInfoSubnumber +
+         mObjDetSubnumber) > 0;
 }
 
 void ZedCamera::retrieveVideoDepth()
@@ -6945,7 +6948,8 @@ void ZedCamera::retrieveVideoDepth()
 
   // ----> Retrieve all required data
   DEBUG_STREAM_VD("Retrieving Video Data");
-  if (mRgbSubnumber + mLeftSubnumber + mStereoSubnumber > 0) {
+
+  if (mRgbSubnumber + mLeftSubnumber + mStereoSubnumber + mObjDetSubnumber > 0) {
     retrieved |=
       sl::ERROR_CODE::SUCCESS ==
       mZed->retrieveImage(mMatLeft, sl::VIEW::LEFT, sl::MEM::CPU, mMatResol);
