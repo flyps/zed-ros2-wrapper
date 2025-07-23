@@ -1,22 +1,153 @@
 LATEST CHANGES
 ==============
 
-2024-07-15
-----------
-- Fixed a bug while playing a ZED X stream on a "not-Jetson" host device
+2025-07-08
+-----------
+- Change `pos_tracking.area_memory_db_path` to `pos_tracking.area_file_path` to match the ZED SDK parameter name
+- Add parameter `pos_tracking.save_area_memory_on_closing` to save the Area Memory before closing the camera
+- Fix Area Mapping file handling according to the ZED SDK policies.
+  - The Area Memory file is now saved only if the Area Memory is enabled, if the `pos_tracking.save_area_memory_on_closing` 
+  parameter is set to `true`, if the `pos_tracking.area_file_path` is set and if the `pos_tracking.area_file_path` is valid.
+- Add `save_area_memory` service
+  - Set the filename as a parameter. If the filename is empty, it uses the value of the parameter `pos_tracking.area_file_path` if not empty.
 
-2024-06-24
+2025-06-18
 ----------
-- Changed default DDS Middleware to FastRTPS in Docker
+- Added a new launch option 'node_log_type' to set the type of log to be used by the ZED Node.
+  - The available options are `screen`, `log`, and `both`.
 
-2024-05-29
+2025-05-29
 ----------
-- New Docker configuration files allow to easily create "ZED ROS2 Wrapper" images based on specific tag versions. [Read more](./docker/README.md)
+- Separated Video/Depth data publishing into its own thread for more precise control over the publishing rate, 
+  independent of the camera grab rate. This enables recording SVO files or processing positional tracking at 
+  full grab rate, while publishing data at a reduced rate to optimize bandwidth usage.
 
-2024-04-26 (ZED SDK v4.1)
--------------------------
-- Updated the Docker files to the CUDA 12.4 (PC), L4T 35.4 (Jetson), SDK v4.1.0
+2025-05-20
+----------
+- Add advanced handling of the Object Detection and Tracking module of the ZED SDK
+
+  - Move the multi-box native object detection parameters to the `object_detection.yaml` file
+  - Add specific parameters to set the confidence threshold for each of the includes object detection classes of the ZED SDK
+  - Move the Custom Object Detection parameters to the `custom_object_detection.yaml` file
+  - Support all the new parameters of the ZED SDK v5 separately for each of the custom object detection classes
+
+- The usage of the new Object Detection support is fully described on the ZED ROS 2 online documentation:
+  - Object Detection: https://www.stereolabs.com/docs/ros2/object-detection/
+  - Custom Object Detection: https://www.stereolabs.com/docs/ros2/custom-object-detection/
+
+2025-05-19
+-----------
+- Move `brightness`, `contrast`, and `hue` from `common_stereo.yaml` to `zed.yaml`, `zed2.yaml`, `zed2i.yaml`, and `zedm.yaml` files
+
+2025-05-14
+----------
+- Add `/clock` publisher to be used in SVO Mode to synchronize other nodes with the SVO timestamp
+- Add parameter `svo.publish_svo_clock` to enable the `/clock` publisher
+  - The parameter 'svo.publish_svo_clock' is normally overridden by the `publish_svo_clock` launch option
+
+2025-04-30
+----------
+- Default SVO Recording Compression mode [`0`] is forced to `H265` replacing the old `LOSSLESS` mode
+  - H265 is far superior as it uses hardware encoder, resulting in faster, lighter encoding, and dramatically smaller SVO2 files
+
+2025-04-28
+----------
+- Add new parameter `svo.replay_rate` to set the replay rate for the SVO when not used in realtime mode (range [0.10-5.0])
+- Improved diagnostic information for SVO playback
+
+2025-04-23
+----------
+- Clean shutdown of ZED components using `pre_shutdown_callback`
+
+2025-04-22
+----------
+- Add backward compatibility with SDK v4.2
+
+2025-04-18
+----------
+- Add parameter 'debug.sdk_verbose_log_file' to Stereo and Mono components to set the path of the SDK verbose log file
+
+2025-04-16
+----------
+- Fix realtime IMU data publishing when using SVO2
+
+2025-04-15
+----------
+- Improve performance with the default stereo configuration
+- Fix Positional Tracking enabling when required by ZED SDK modules
+
+2025-04-01
+----------
+- Add Heartbeat status message at 1 Hz: `~/status/heartbeat`
+
+2025-03-28
+----------
+- Note: requires the latest `zed_msgs` package v5.0.0
+- Add SVO Status topic to monitor the current SVO status of type `zed_msgs::SvoStatus`
+- Add fully integrated Health Status topic of type `zed_msgs::HealthStatusStamped`
+  - Remove the single health status topics to simplicy health monitoring
+- Remove `cob_srvs` dependency to use the custom `zed_msgs::SetSvoFrame` service
+
+2025-03-26
+----------
+- Add official support for ROS 2 Jazzy Jalisco
+
+v4.2.5
+------
+- Add new parameter 'depth.point_cloud_res' to set a specific point cloud publishing resolution
+  - 'COMPACT': Standard resolution. Optimizes processing and bandwidth
+  - 'REDUCED': Half 'COMPACT' resolution. Low processing and low bandwidth requirements
+- Add uptime and frame drop rate information to node diagnostics
+- Add image validity check support [SDK 5 required]
+  - Add new parameter 'general.enable_image_validity_check'
+  - Add new topic 'health_status/low_image_quality' to publish image quality status
+  - Add new topic 'health_status/low_lighting' to publish low light condition status
+  - Add new topic 'health_status/low_depth_reliability' to publish low depth quality status
+  - Add new topic 'health_status/low_motion_sensors_reliability' to publish low quality of inertial sensors status
+  - Set the Node Disgnostic to WARNING if any of the above conditions are detected
+- Add `general.camera_id` parameter to set the camera ID for the ZedCamera. 
+- Add `general.camera_id` parameter to set the camera ID for the ZedCameraOne.
+- Add `camera_id` argument to the `zed_camera.launch.py` launch file. Useful for GMSL2 multi-camera configurations where camera ID is estabilished by the GMSL2 wire.
+- Improve Node Diagnostics information
+- Add `pos_tracking.reset_pose_with_svo_loop` parameter to reset the camera pose the `initial_base_pose` when the SVO loop is enabled and the SVO playback reaches the end of the file.
+- Add `svo.play_from_frame` parameter to set the starting frame when playing an SVO file.
+- Add `set_svo_frame` service to set the current frame when playing an SVO file.
+- Remove unused open timeout for ZED X One cameras
+- Add parameter `svo.use_svo_timestamps` to use the SVO timestamps when publishing data (both stereo and mono components)
+
+v4.2.x
+------
+- Add new `OPTIMIZED` mode for `general.pub_resolution`
+- Add new parameter `general.async_image_retrieval` to enable/disable the asynchronous image retrieval to be used with SVO recording.
+- Set the Positional Tracking Mode to `GEN_1` as default as wa orkaround for the random crash issue caused by `GEN_2` mode.
+- Fixed a bug for raw gray image publisher on Zed One Component: raw gray images were not published when the rectified image topic was subscribed. Thx @Alex-Beh 
+- Enabled grayscale output for ZED X One cameras (SDK v4.2.3 required)
+- Enabled streaming input for ZED X One cameras (SDK v4.2.3 required)
+- Fixed wrong range check for the `general.pub_downscale_factor` parameter
+- Enhanced sensor thread rate due to an automatically adjusting sleep time
+- Removed the `zed-ros2-interfaces` sub-module. The `zed_msgs` package is now included in ROS 2 Humble binaries and can be installed with `sudo apt install ros-humble-zed-msgs`.
+- Fixed 4K resolution support for ZED X One 4K cameras
+- Changed C++ version to 17 to follow ROS 2 Humble standard
+- Renamed `common.yaml` to `common_stereo.yaml`
+- Added `common_mono.yaml` for monocular cameras
+- Added `video.enable_hdr` to `zedxone4k.yaml` for monocular 4K cameras
+- Changed the name of the package `zed_interfaces` to `zed_msgs` to match the ROS2 naming convention
+- Added the new `stereolabs::ZedCameraOne` component to handle ZED X One cameras
+- Removed the ZED Wrapper executable node.
+
+  - Modified the launch file to create an isolated composable container that loads the `stereolabs:ZedCamera` or the `stereolabs:ZedCameraOne` component according to the camera model  
+
+- Added support for custom ONNX detection engine (SDK v4.2 required)
+  - Added value `CUSTOM_YOLOLIKE_BOX_OBJECTS` to the `object_detection.model` parameter
+  - Added parameter `object_detection.custom_onnx_file` to set the full path of the custom ONNX file
+  - Added parameter `object_detection.onnx_input_size` to set the size of the YOLO input tensor
+  - Added parameter `object_detection.custom_label_yaml` to set the full path to custom YAML file storing class labels in [COCO format](https://docs.ultralytics.com/datasets/detect/coco/#dataset-yaml)
+
+v4.1.x
+------
+- Updated the Docker files to the CUDA 12.4 (PC), L4T 35.4 (Jetson), SDK v4.1.4
 - Added Local Streaming output
+
   - Added `enable_streaming` service to start/stop a streaming server
   - Added Streaming Server diagnostic
   - Added parameter 'stream_server.stream_enabled': enable the streaming server when the camera is open
@@ -27,7 +158,9 @@ LATEST CHANGES
   - Added parameter 'stream_server.adaptative_bitrate': Bitrate will be adjusted depending on the number of packets dropped during streaming
   - Added parameter 'stream_server.chunk_size': Stream buffers are divided into X number of chunks where each chunk is chunk_size bytes long
   - Added parameter 'stream_server.target_framerate': Framerate for the streaming output
+
 - Added Local Streaming input
+
   - Added 'stream.stream_address' and 'stream.stream_port' parameter to configure the local streaming input
 - GNSS Fusion temporarily disabled *(available with 4.1.1)*
 - Moved parameter 'general.svo_file' to 'svo.svo_path'
@@ -41,6 +174,7 @@ LATEST CHANGES
 - Added new `GnssFusionStatus` message with GNSS Fusion status information *(available with 4.1.1)*
 - Added new parameters `gnss_fusion.h_covariance_mul` and `gnss_fusion.v_covariance_mul` to control the effects of the GNSS covariance
 - Added support to Automatic ROI
+
   - Added ROI diagnostic
   - Added parameter `debug.debug_roi`
   - Publish ROI mask image on the topic `~/roi_mask` using image transport
@@ -54,9 +188,16 @@ LATEST CHANGES
   - Added parameter `region_of_interest.apply_to_object_detection`
   - Added parameter `region_of_interest.apply_to_body_tracking`
   - Added parameter `region_of_interest.apply_to_spatial_mapping`
+
 - Removed QoS parameters to use ROS 2 QoS overwrite -> https://design.ros2.org/articles/qos_configurability.html
 - Added support for new `NEURAL_PLUS` depth mode
 - Added new `<camera_name>_gnss_link` frame to URDF to set the position of the GNSS antenna with respect to the camera position
+- New Docker configuration files allow to easily create "ZED ROS2 Wrapper" images based on specific tag versions. [Read more](./docker/README.md)
+- Fixed a bug while playing a ZED X stream on a "not-Jetson" host device
+- Add support for point cloud transport [only Humble, no Foxy]
+- Add support for FFMPEG image transport
+- Add new `ffmpeg.yaml` configuration file
+- Fix `~/imu/data_raw` message not containing RAW IMU data
 
 v4.0.8
 ------
@@ -76,8 +217,10 @@ v4.0.8
 - The reference link for positional tracking is no longer 'base_link' but `<camera_name>_camera_link`. 
   This will allow an easier ZED integration in existing robot configuration because the transform `base_link` -> `camera_link` 
   is no longer published by the ZED ROS2 Wrapper. Thanks to @SteveMacenski for the advice
+
   - Removed `parent` and `origin` parameters from `zed_macro.urdf.xacro`
   - Removed launch argument `cam_pose` from `zed_camera.launch.py`
+
 - Moved parameter `publish_imu_tf` from `pos_tracking` to `sensors` to make it available also in "no depth" configurations of the node
 - Added new parameter `pos_tracking.pos_tracking_mode` to exploit the new ZED SDK `QUALITY` mode for improved odometry and localization
 - New Video/Depth processing throttling method by using the `grab_compute_capping_fps` ZED SDK parameter instead of a dedicated thread
@@ -102,6 +245,7 @@ v4.0.0
 - Added support for ZED-X and ZED-X Mini
 
   - Moved `general.grab_resolution` and `general.grab_frame_rate` to the yaml file specific for the relative camera model (i.e. `zed.yaml`, `zedm.yaml`, `zed2.yaml`, `zed2i.yaml`, `zedx.yaml`, `zedxm.yaml`)
+
   - Added `zedx.launch.py` for ZED-X
   - Added `zedxm.launch.py` for ZED-X Mini
   - Improve `zed_macro.urdf.xacro` with specific configuration for the new camera models
@@ -247,8 +391,10 @@ v3.8.x
 - Moved Object Detection parameters from cameras configuration files to `common.yaml`
 - Moved Sensor Parameters from cameras configuration files to `common.yaml`
 - New data thread configuration to maximize data publishing frequency
+
   - Sensor data publishing moved from timer to thread
   - RGB/Depth data publishing moved from timer to thread
+
 - Fixed random errors when closing the node
 - Fixed wrong timing when playing SVO in `real-time` mode
 - Fixed units for atmospheric pressure data. Now pressure is published in `Pascals` according to the [definition of the topic](https://github.com/ros2/common_interfaces/blob/humble/sensor_msgs/msg/FluidPressure.msg).
@@ -257,6 +403,7 @@ v3.8.x
 - Added new parameter `pos_tracking.sensor_world` to define the world type that the SDK can use to initialize the Positionnal Tracking module
 - Added new parameter `object_detection.prediction_timeout` for setting the timeout time [sec] of object prediction when not detected.
 - Added support for ZED SDK Regiorn of Interest:
+
   - Added parameter `general.region_of_interest` to set the region of interest for SDK processing.
   - Added the service `resetRoi` to reset the region of interest.
   - Added the service `setRoi` to set a new region of interest.
@@ -283,7 +430,9 @@ v3.6.x (2021-12-03)
 - Fix SVO LOOP wrong behavior. Thx @kevinanschau
 - Added xacro support for automatic URDF configuration
 - Reworked launch files to support xacro and launch parameters
+
     - Use `ros2 launch zed_wrapper <launch_file> -s` to retrieve all the available parameters
+
 - Added `svo_path:=<full path to SVO file>` as input for all the launch files to start the node using an SVO as input without modifying 'common.yaml`
 - Improved diagnostic information adding elaboration time on all the main tasks
 - Improved diagnostic time and frequencies calculation

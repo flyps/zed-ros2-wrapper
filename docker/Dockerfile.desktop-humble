@@ -1,11 +1,11 @@
 ARG UBUNTU_MAJOR=22
 ARG UBUNTU_MINOR=04
 ARG CUDA_MAJOR=12
-ARG CUDA_MINOR=4
-ARG CUDA_PATCH=1
+ARG CUDA_MINOR=6
+ARG CUDA_PATCH=3
 ARG ZED_SDK_MAJOR=4
-ARG ZED_SDK_MINOR=1
-ARG ZED_SDK_PATCH=0
+ARG ZED_SDK_MINOR=2
+ARG ZED_SDK_PATCH=5
 
 ARG IMAGE_NAME=nvcr.io/nvidia/cuda:${CUDA_MAJOR}.${CUDA_MINOR}.${CUDA_PATCH}-devel-ubuntu${UBUNTU_MAJOR}.${UBUNTU_MINOR}
 
@@ -14,11 +14,13 @@ FROM ${IMAGE_NAME}
 ARG UBUNTU_MAJOR=22
 ARG UBUNTU_MINOR=04
 ARG CUDA_MAJOR=12
-ARG CUDA_MINOR=4
-ARG CUDA_PATCH=1
+ARG CUDA_MINOR=6
+ARG CUDA_PATCH=3
 ARG ZED_SDK_MAJOR=4
-ARG ZED_SDK_MINOR=1
-ARG ZED_SDK_PATCH=0
+ARG ZED_SDK_MINOR=2
+ARG ZED_SDK_PATCH=3
+# Optional: Override ZED SDK URL
+ARG CUSTOM_ZED_SDK_URL=""
 
 ARG ROS2_DIST=humble       # ROS2 distribution
 
@@ -31,11 +33,11 @@ ENV NVIDIA_DRIVER_CAPABILITIES \
 RUN apt-get update || true && apt-get install -y --no-install-recommends apt-utils dialog curl && \
   rm -rf /var/lib/apt/lists/*
 
-# ZED SDK link
-ENV ZED_SDK_URL="https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}/ZED_SDK_Ubuntu${UBUNTU_MAJOR}_cuda${CUDA_MAJOR}.${CUDA_MINOR}_v${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}.${ZED_SDK_PATCH}.zstd.run"
+ENV ZED_SDK_URL=${CUSTOM_ZED_SDK_URL:-"https://download.stereolabs.com/zedsdk/${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}.${ZED_SDK_PATCH}/cu${CUDA_MAJOR}/ubuntu${UBUNTU_MAJOR}"}
+
 # Check that this SDK exists
 RUN echo "SDK link: $ZED_SDK_URL"
-RUN if [ "$(curl -I "${ZED_SDK_URL}" -o /dev/null -s -w '%{http_code}\n' | head -n 1)" = "200" ]; then \
+RUN if [ "$(curl -L -I "${ZED_SDK_URL}" -o /dev/null -s -w '%{http_code}\n' | head -n 1)" = "200" ]; then \
         echo "The URL points to something."; \
     else \
         echo "The URL does not point to a .run file or the file does not exist."; \
@@ -74,11 +76,6 @@ RUN apt-get update || true && \
 RUN apt-get update || true && \
   apt-get install --no-install-recommends -y \
   ros-${ROS2_DIST}-ros-base \
-  ros-${ROS2_DIST}-ament-cmake-clang-format \
-  ros-${ROS2_DIST}-image-transport \
-  ros-${ROS2_DIST}-image-transport-plugins \
-  ros-${ROS2_DIST}-diagnostic-updater \
-  ros-${ROS2_DIST}-xacro \
   python3-flake8-docstrings \
   python3-pip \
   python3-pytest-cov \
@@ -118,7 +115,7 @@ COPY tmp_sources/ ./
 WORKDIR /root/ros2_ws/
 
 RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
-  apt-get update -y || true && \
+  apt-get update -y || true && rosdep update && \
   rosdep install --from-paths src --ignore-src -r -y && \
   colcon build --parallel-workers $(nproc) --symlink-install \
   --event-handlers console_direct+ --base-paths src \
@@ -128,9 +125,6 @@ RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
   rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root/ros2_ws
-
-# Set the default DDS middleware to FastRTPS for improved big data transmission
-ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 # Setup environment variables
 COPY ros_entrypoint.sh /sbin/ros_entrypoint.sh
