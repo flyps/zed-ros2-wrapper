@@ -64,12 +64,12 @@ namespace stereolabs
 {
 
 // ----> Global constants
-const double DEG2RAD = 0.017453293;
+/**const double DEG2RAD = 0.017453293;
 const double RAD2DEG = 57.295777937;
 
 const sl::UNIT ROS_MEAS_UNITS = sl::UNIT::METER;
 
-const int QOS_QUEUE_SIZE = 10;
+const int QOS_QUEUE_SIZE = 10;**/
 // <---- Global constants
 
 ZedCamera::ZedCamera(const rclcpp::NodeOptions & options)

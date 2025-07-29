@@ -236,7 +236,6 @@ target_compile_definitions(zed_camera_component
 )
 target_link_libraries(zed_camera_component
     ${ZED_LIBS}
-    mmdeploy
     ${OpenCV_LIBS}
 )
 ament_target_dependencies(zed_camera_component

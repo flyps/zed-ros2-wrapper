@@ -19,8 +19,6 @@
 #include <sl/Camera.hpp>
 #include <sl/Fusion.hpp>
 #include <unordered_set>
-#include <mmdeploy/model.h>
-#include <mmdeploy/detector.hpp>
 
 #include "sl_tools.hpp"
 #include "sl_types.hpp"
@@ -362,7 +360,6 @@ private:
   std::string mCustomDetectorEnginePath{};
   void loadCustomDetectorEngine();
   std::vector<sl::CustomBoxObjectData> obtainCustomDetections();
-  mmdeploy_detector_t customDetector{};
 
   // ZED SDK
   sl::COORDINATE_SYSTEM mCoordSys = sl::COORDINATE_SYSTEM::IMAGE;
