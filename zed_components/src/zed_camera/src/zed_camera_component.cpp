@@ -8087,6 +8087,14 @@ void ZedCamera::processDetectedObjects(rclcpp::Time t)
       }
       auto objects_in = obtainCustomDetections();
 
+
+      // Debug print: unique_object_id, probability
+      RCLCPP_DEBUG_STREAM(get_logger(), "Custom detections input count: " << objects_in.size());
+      for (const auto &obj : objects_in) {
+          RCLCPP_DEBUG_STREAM(get_logger(), "Custom detection: ID " << obj.label
+          << ", prob " << obj.probability);
+      }
+
       // Send the custom detected boxes to the ZED SDK
       if(mZed->ingestCustomBoxObjects(objects_in, mObjDetInstID) != sl::ERROR_CODE::SUCCESS) {
         RCLCPP_WARN_STREAM(get_logger(), "Error while ingesting custom objects. Skipping this frame.");
