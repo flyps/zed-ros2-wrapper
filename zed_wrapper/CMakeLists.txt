@@ -88,11 +88,6 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(rcutils REQUIRED)
 
-set(TENSORRT_DIR "/usr/include/aarch64-linux-gnu")
-set(MMDeploy_DIR "/home/apple/mmdeploy/build/install/lib/cmake/MMDeploy")
-find_package(OpenCV REQUIRED)
-find_package(MMDeploy REQUIRED)
-
 find_package(zed_components REQUIRED)
 
 if(BUILD_TESTING)
