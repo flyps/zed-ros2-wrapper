@@ -139,10 +139,8 @@ find_package(visualization_msgs REQUIRED)
 find_package(shape_msgs REQUIRED)
 find_package(robot_localization REQUIRED)
 
-set(TENSORRT_DIR "/usr/include/aarch64-linux-gnu")
-set(MMDeploy_DIR "/home/apple/mmdeploy/build/install/lib/cmake/MMDeploy")
 find_package(OpenCV REQUIRED)
-find_package(MMDeploy REQUIRED)
+# find_package(MMDeploy REQUIRED) # Managed by ament_auto_find_build_dependencies()
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
