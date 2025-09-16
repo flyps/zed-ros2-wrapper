@@ -21,6 +21,7 @@
 #include <unordered_set>
 #include <mmdeploy/model.h>
 #include <mmdeploy/detector.hpp>
+#include <opencv2/opencv.hpp>
 
 #include "sl_tools.hpp"
 #include "sl_types.hpp"
@@ -224,6 +225,12 @@ protected:
 
   void processRtRoi(rclcpp::Time t);
 
+  // Detection visualization functions
+  cv::Mat slMat2cvMat(const sl::Mat & input);
+  void drawDetections(cv::Mat & image, const sl::Objects & objects);
+  void publishDetectionImage(
+    const sl::Mat & inputImage, const sl::Objects & objects, rclcpp::Time t);
+
   bool setPose(float xt, float yt, float zt, float rr, float pr, float yr);
   void initTransforms();
   bool getSens2BaseTransform();
@@ -422,6 +429,12 @@ private:
   sl::OBJECT_FILTERING_MODE mObjFilterMode = sl::OBJECT_FILTERING_MODE::NMS3D;
   std::vector<int64_t> mObjDetCustomClasses{};
 
+  // Detection visualization parameters
+  bool mObjDetVisualizationEnabled = false;
+  int mObjDetBboxThickness = 2;
+  int mObjDetFontScale = 1;
+  int mObjDetFontThickness = 2;
+
   bool mBodyTrkEnabled = false;
   sl::BODY_TRACKING_MODEL mBodyTrkModel =
     sl::BODY_TRACKING_MODEL::HUMAN_BODY_FAST;
@@ -610,6 +623,8 @@ private:
 
   image_transport::CameraPublisher mPubRoiMask;
 
+  image_transport::CameraPublisher mPubRgbDetections;
+
   imagePub mPubConfMap;
   disparityPub mPubDisparity;
   pointcloudPub mPubCloud;
@@ -662,6 +677,7 @@ private:
   size_t mConfMapSubnumber = 0;
   size_t mDisparitySubnumber = 0;
   size_t mDepthInfoSubnumber = 0;
+  size_t mRgbDetectionsSubnumber = 0;
 
   sl::Mat mMatLeft, mMatLeftRaw;
   sl::Mat mMatRight, mMatRightRaw;

@@ -1743,6 +1743,15 @@ void ZedCamera::getOdParams()
     get_logger(),
     " * MultiClassBox sport-related objects: "
       << (mObjDetSportEnable ? "TRUE" : "FALSE"));
+
+  // Detection visualization parameters
+  getParam(
+    "object_detection.visualization_enabled", mObjDetVisualizationEnabled,
+    mObjDetVisualizationEnabled, "", true);
+  RCLCPP_INFO_STREAM(
+    get_logger(),
+    " * Detection visualization: " 
+      << (mObjDetVisualizationEnabled ? "TRUE" : "FALSE"));
 }
 
 void ZedCamera::getBodyTrkParams()
@@ -3388,6 +3397,7 @@ void ZedCamera::initPublishers()
   std::string rgb_gray_topic = mTopicRoot + rgbTopicRoot + img_gray_topic;
   std::string rgb_raw_gray_topic =
     mTopicRoot + rgbTopicRoot + raw_suffix + img_raw_gray_topic_;
+  std::string rgb_detections_topic = mTopicRoot + rgbTopicRoot + "/detections";
 
   // Set the disparity topic name
   std::string disparity_topic = mTopicRoot + "disparity/disparity_image";
@@ -3491,6 +3501,17 @@ void ZedCamera::initPublishers()
   RCLCPP_INFO_STREAM(
     get_logger(),
     "Advertised on topic: " << mPubRawRgbGray.getInfoTopic());
+
+  // Detection visualization publisher
+  mPubRgbDetections = image_transport::create_camera_publisher(
+    this, rgb_detections_topic, mQos.get_rmw_qos_profile());
+  RCLCPP_INFO_STREAM(
+    get_logger(),
+    "Advertised on topic: " << mPubRgbDetections.getTopic());
+  RCLCPP_INFO_STREAM(
+    get_logger(),
+    "Advertised on topic: " << mPubRgbDetections.getInfoTopic());
+
   mPubLeft = image_transport::create_camera_publisher(
     this, left_topic, mQos.get_rmw_qos_profile());
   RCLCPP_INFO_STREAM(
@@ -6901,12 +6922,14 @@ bool ZedCamera::areVideoDepthSubscribed()
   mConfMapSubnumber = 0;
   mDisparitySubnumber = 0;
   mDepthInfoSubnumber = 0;
+  mRgbDetectionsSubnumber = 0;
 
   try {
     mRgbSubnumber = mPubRgb.getNumSubscribers();
     mRgbRawSubnumber = mPubRawRgb.getNumSubscribers();
     mRgbGraySubnumber = mPubRgbGray.getNumSubscribers();
     mRgbGrayRawSubnumber = mPubRawRgbGray.getNumSubscribers();
+    mRgbDetectionsSubnumber = mPubRgbDetections.getNumSubscribers();
     mLeftSubnumber = mPubLeft.getNumSubscribers();
     mLeftRawSubnumber = mPubRawLeft.getNumSubscribers();
     mLeftGraySubnumber = mPubLeftGray.getNumSubscribers();
@@ -6935,7 +6958,8 @@ bool ZedCamera::areVideoDepthSubscribed()
          mLeftGraySubnumber + mLeftGrayRawSubnumber + mRightSubnumber +
          mRightRawSubnumber + mRightGraySubnumber + mRightGrayRawSubnumber +
          mStereoSubnumber + mStereoRawSubnumber + mDepthSubnumber +
-         mConfMapSubnumber + mDisparitySubnumber + mDepthInfoSubnumber) > 0;
+         mConfMapSubnumber + mDisparitySubnumber + mDepthInfoSubnumber + 
+         mRgbDetectionsSubnumber) > 0;
 }
 
 void ZedCamera::retrieveVideoDepth()
@@ -8198,6 +8222,12 @@ void ZedCamera::processDetectedObjects(rclcpp::Time t)
 
   // DEBUG_STREAM_OD("Publishing OBJ DET message");
   mPubObjDet->publish(std::move(objMsg));
+
+  // ----> Publish detection visualization if enabled and has subscribers
+  if (mObjDetVisualizationEnabled && mRgbDetectionsSubnumber > 0) {
+    publishDetectionImage(mMatLeft, objects, t);
+  }
+  // <---- Publish detection visualization
 
   // ----> Diagnostic information update
   mObjDetElabMean_sec->addValue(odElabTimer.toc());
@@ -11015,6 +11045,136 @@ void ZedCamera::stopStreamingServer()
         }
         return objects_in;
     }
+
+cv::Mat ZedCamera::slMat2cvMat(const sl::Mat & input) {
+  // Get sl::Mat information
+  int cv_type = -1;
+  switch (input.getDataType()) {
+    case sl::MAT_TYPE::F32_C1:
+      cv_type = CV_32FC1;
+      break;
+    case sl::MAT_TYPE::F32_C2:
+      cv_type = CV_32FC2;
+      break;
+    case sl::MAT_TYPE::F32_C3:
+      cv_type = CV_32FC3;
+      break;
+    case sl::MAT_TYPE::F32_C4:
+      cv_type = CV_32FC4;
+      break;
+    case sl::MAT_TYPE::U8_C1:
+      cv_type = CV_8UC1;
+      break;
+    case sl::MAT_TYPE::U8_C2:
+      cv_type = CV_8UC2;
+      break;
+    case sl::MAT_TYPE::U8_C3:
+      cv_type = CV_8UC3;
+      break;
+    case sl::MAT_TYPE::U8_C4:
+      cv_type = CV_8UC4;
+      break;
+    default:
+      break;
+  }
+  
+  if (cv_type == -1) {
+    return cv::Mat();
+  }
+  
+  // Create OpenCV matrix and copy data
+  return cv::Mat(input.getHeight(), input.getWidth(), cv_type, input.getPtr<sl::uchar1>(sl::MEM::CPU)).clone();
+}
+
+void ZedCamera::drawDetections(cv::Mat & image, const sl::Objects & objects) {
+  // Color palette for different object classes
+  std::vector<cv::Scalar> colors = {
+    cv::Scalar(255, 0, 0),   // Red
+    cv::Scalar(0, 255, 0),   // Green
+    cv::Scalar(0, 0, 255),   // Blue
+    cv::Scalar(255, 255, 0), // Cyan
+    cv::Scalar(255, 0, 255), // Magenta
+    cv::Scalar(0, 255, 255), // Yellow
+    cv::Scalar(128, 0, 128), // Purple
+    cv::Scalar(255, 165, 0), // Orange
+    cv::Scalar(0, 128, 128), // Teal
+    cv::Scalar(128, 128, 0)  // Olive
+  };
+
+  for (const auto& obj : objects.object_list) {
+    if (obj.bounding_box_2d.size() != 4) {
+      continue;
+    }
+
+    // Get bounding box coordinates
+    int x1 = static_cast<int>(obj.bounding_box_2d[0].x);
+    int y1 = static_cast<int>(obj.bounding_box_2d[0].y);
+    int x2 = static_cast<int>(obj.bounding_box_2d[2].x);
+    int y2 = static_cast<int>(obj.bounding_box_2d[2].y);
+
+    // Select color based on object ID or class
+    cv::Scalar color = colors[obj.id % colors.size()];
+
+    // Draw bounding box
+    cv::rectangle(image, cv::Point(x1, y1), cv::Point(x2, y2), color, mObjDetBboxThickness);
+
+    // Prepare label text
+    std::string label;
+    if (mCustomDetectorEngineLoaded) {
+      label = "Obj" + std::to_string(obj.raw_label) + "_id" + std::to_string(obj.id);
+    } else {
+      label = sl::toString(obj.label);
+    }
+    
+    // Add confidence to label
+    label += " " + std::to_string(static_cast<int>(obj.confidence)) + "%";
+
+    // Calculate text size and position
+    int baseline = 0;
+    cv::Size textSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 
+                                       mObjDetFontScale * 0.5, mObjDetFontThickness, &baseline);
+    
+    // Draw label background
+    cv::Point labelPos(x1, y1 - 10);
+    if (labelPos.y < textSize.height) {
+      labelPos.y = y1 + textSize.height + 10;
+    }
+    
+    cv::rectangle(image, 
+                  cv::Point(labelPos.x, labelPos.y - textSize.height - 5),
+                  cv::Point(labelPos.x + textSize.width + 5, labelPos.y + 5),
+                  color, -1);
+
+    // Draw label text
+    cv::putText(image, label, labelPos, cv::FONT_HERSHEY_SIMPLEX, 
+                mObjDetFontScale * 0.5, cv::Scalar(255, 255, 255), mObjDetFontThickness);
+  }
+}
+
+void ZedCamera::publishDetectionImage(const sl::Mat & inputImage, const sl::Objects & objects, rclcpp::Time t) {
+  // Convert sl::Mat to cv::Mat
+  cv::Mat cvImage = slMat2cvMat(inputImage);
+  if (cvImage.empty()) {
+    RCLCPP_WARN(get_logger(), "Failed to convert sl::Mat to cv::Mat for detection visualization");
+    return;
+  }
+
+  // Draw detections on the image
+  drawDetections(cvImage, objects);
+
+  // Convert cv::Mat back to sl::Mat
+  sl::Mat annotatedSlMat;
+  sl::MAT_TYPE slType = inputImage.getDataType();
+  
+  annotatedSlMat.alloc(cvImage.cols, cvImage.rows, slType, sl::MEM::CPU);
+  memcpy(annotatedSlMat.getPtr<sl::uchar1>(sl::MEM::CPU), cvImage.data, 
+         cvImage.total() * cvImage.elemSize());
+
+  // Publish the annotated image
+  publishImageWithInfo(annotatedSlMat, mPubRgbDetections, mRgbCamInfoMsg, 
+                      mDepthOptFrameId, t);
+}
+
 }  // namespace stereolabs
 
 #include "rclcpp_components/register_node_macro.hpp"
