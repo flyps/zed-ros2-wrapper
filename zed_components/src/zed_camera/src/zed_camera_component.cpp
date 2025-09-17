@@ -11046,59 +11046,104 @@ void ZedCamera::stopStreamingServer()
         return objects_in;
     }
 
-cv::Mat ZedCamera::slMat2cvMat(const sl::Mat & input) {
-  // Get sl::Mat information
-  int cv_type = -1;
-  switch (input.getDataType()) {
-    case sl::MAT_TYPE::F32_C1:
-      cv_type = CV_32FC1;
-      break;
-    case sl::MAT_TYPE::F32_C2:
-      cv_type = CV_32FC2;
-      break;
-    case sl::MAT_TYPE::F32_C3:
-      cv_type = CV_32FC3;
-      break;
-    case sl::MAT_TYPE::F32_C4:
-      cv_type = CV_32FC4;
-      break;
-    case sl::MAT_TYPE::U8_C1:
-      cv_type = CV_8UC1;
-      break;
-    case sl::MAT_TYPE::U8_C2:
-      cv_type = CV_8UC2;
-      break;
-    case sl::MAT_TYPE::U8_C3:
-      cv_type = CV_8UC3;
-      break;
-    case sl::MAT_TYPE::U8_C4:
-      cv_type = CV_8UC4;
-      break;
-    default:
-      break;
+void ZedCamera::drawRectangle(std::vector<uint8_t>& data, int width, int height, int channels, 
+                             int x1, int y1, int x2, int y2, uint8_t r, uint8_t g, uint8_t b) {
+  // Ensure coordinates are within bounds
+  x1 = std::max(0, std::min(x1, width - 1));
+  y1 = std::max(0, std::min(y1, height - 1));
+  x2 = std::max(0, std::min(x2, width - 1));
+  y2 = std::max(0, std::min(y2, height - 1));
+  
+  if (x1 >= x2 || y1 >= y2) return;
+  
+  int thickness = mObjDetBboxThickness;
+  
+  // Draw horizontal lines (top and bottom)
+  for (int t = 0; t < thickness && t < (y2 - y1); ++t) {
+    // Top line
+    if (y1 + t < height) {
+      for (int x = x1; x <= x2 && x < width; ++x) {
+        int idx = ((y1 + t) * width + x) * channels;
+        if (idx + 2 < static_cast<int>(data.size())) {
+          if (channels >= 3) {
+            data[idx] = b;     // B (for BGR format)
+            data[idx + 1] = g; // G  
+            data[idx + 2] = r; // R
+          } else if (channels == 1) {
+            data[idx] = static_cast<uint8_t>(0.299 * r + 0.587 * g + 0.114 * b); // Grayscale
+          }
+        }
+      }
+    }
+    
+    // Bottom line
+    if (y2 - t >= 0 && y2 - t < height) {
+      for (int x = x1; x <= x2 && x < width; ++x) {
+        int idx = ((y2 - t) * width + x) * channels;
+        if (idx + 2 < static_cast<int>(data.size())) {
+          if (channels >= 3) {
+            data[idx] = b;
+            data[idx + 1] = g;
+            data[idx + 2] = r;
+          } else if (channels == 1) {
+            data[idx] = static_cast<uint8_t>(0.299 * r + 0.587 * g + 0.114 * b);
+          }
+        }
+      }
+    }
   }
   
-  if (cv_type == -1) {
-    return cv::Mat();
+  // Draw vertical lines (left and right)
+  for (int t = 0; t < thickness && t < (x2 - x1); ++t) {
+    // Left line
+    if (x1 + t < width) {
+      for (int y = y1; y <= y2 && y < height; ++y) {
+        int idx = (y * width + (x1 + t)) * channels;
+        if (idx + 2 < static_cast<int>(data.size())) {
+          if (channels >= 3) {
+            data[idx] = b;
+            data[idx + 1] = g;
+            data[idx + 2] = r;
+          } else if (channels == 1) {
+            data[idx] = static_cast<uint8_t>(0.299 * r + 0.587 * g + 0.114 * b);
+          }
+        }
+      }
+    }
+    
+    // Right line
+    if (x2 - t >= 0 && x2 - t < width) {
+      for (int y = y1; y <= y2 && y < height; ++y) {
+        int idx = (y * width + (x2 - t)) * channels;
+        if (idx + 2 < static_cast<int>(data.size())) {
+          if (channels >= 3) {
+            data[idx] = b;
+            data[idx + 1] = g;
+            data[idx + 2] = r;
+          } else if (channels == 1) {
+            data[idx] = static_cast<uint8_t>(0.299 * r + 0.587 * g + 0.114 * b);
+          }
+        }
+      }
+    }
   }
-  
-  // Create OpenCV matrix and copy data
-  return cv::Mat(input.getHeight(), input.getWidth(), cv_type, input.getPtr<sl::uchar1>(sl::MEM::CPU)).clone();
 }
 
-void ZedCamera::drawDetections(cv::Mat & image, const sl::Objects & objects) {
-  // Color palette for different object classes
-  std::vector<cv::Scalar> colors = {
-    cv::Scalar(255, 0, 0),   // Red
-    cv::Scalar(0, 255, 0),   // Green
-    cv::Scalar(0, 0, 255),   // Blue
-    cv::Scalar(255, 255, 0), // Cyan
-    cv::Scalar(255, 0, 255), // Magenta
-    cv::Scalar(0, 255, 255), // Yellow
-    cv::Scalar(128, 0, 128), // Purple
-    cv::Scalar(255, 165, 0), // Orange
-    cv::Scalar(0, 128, 128), // Teal
-    cv::Scalar(128, 128, 0)  // Olive
+void ZedCamera::drawDetectionsOnImageData(std::vector<uint8_t>& imageData, int width, int height, 
+                                         int channels, const sl::Objects & objects) {
+  // Color palette for different object classes (RGB values)
+  struct Color { uint8_t r, g, b; };
+  std::vector<Color> colors = {
+    {255, 0, 0},   // Red
+    {0, 255, 0},   // Green
+    {0, 0, 255},   // Blue
+    {255, 255, 0}, // Yellow
+    {255, 0, 255}, // Magenta
+    {0, 255, 255}, // Cyan
+    {128, 0, 128}, // Purple
+    {255, 165, 0}, // Orange
+    {0, 128, 128}, // Teal
+    {128, 128, 0}  // Olive
   };
 
   for (const auto& obj : objects.object_list) {
@@ -11112,67 +11157,69 @@ void ZedCamera::drawDetections(cv::Mat & image, const sl::Objects & objects) {
     int x2 = static_cast<int>(obj.bounding_box_2d[2].x);
     int y2 = static_cast<int>(obj.bounding_box_2d[2].y);
 
-    // Select color based on object ID or class
-    cv::Scalar color = colors[obj.id % colors.size()];
+    // Select color based on object ID
+    Color color = colors[obj.id % colors.size()];
 
-    // Draw bounding box
-    cv::rectangle(image, cv::Point(x1, y1), cv::Point(x2, y2), color, mObjDetBboxThickness);
-
-    // Prepare label text
-    std::string label;
-    if (mCustomDetectorEngineLoaded) {
-      label = "Obj" + std::to_string(obj.raw_label) + "_id" + std::to_string(obj.id);
-    } else {
-      label = sl::toString(obj.label);
-    }
-    
-    // Add confidence to label
-    label += " " + std::to_string(static_cast<int>(obj.confidence)) + "%";
-
-    // Calculate text size and position
-    int baseline = 0;
-    cv::Size textSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 
-                                       mObjDetFontScale * 0.5, mObjDetFontThickness, &baseline);
-    
-    // Draw label background
-    cv::Point labelPos(x1, y1 - 10);
-    if (labelPos.y < textSize.height) {
-      labelPos.y = y1 + textSize.height + 10;
-    }
-    
-    cv::rectangle(image, 
-                  cv::Point(labelPos.x, labelPos.y - textSize.height - 5),
-                  cv::Point(labelPos.x + textSize.width + 5, labelPos.y + 5),
-                  color, -1);
-
-    // Draw label text
-    cv::putText(image, label, labelPos, cv::FONT_HERSHEY_SIMPLEX, 
-                mObjDetFontScale * 0.5, cv::Scalar(255, 255, 255), mObjDetFontThickness);
+    // Draw bounding box rectangle
+    drawRectangle(imageData, width, height, channels, x1, y1, x2, y2, 
+                 color.r, color.g, color.b);
   }
 }
 
 void ZedCamera::publishDetectionImage(const sl::Mat & inputImage, const sl::Objects & objects, rclcpp::Time t) {
-  // Convert sl::Mat to cv::Mat
-  cv::Mat cvImage = slMat2cvMat(inputImage);
-  if (cvImage.empty()) {
-    RCLCPP_WARN(get_logger(), "Failed to convert sl::Mat to cv::Mat for detection visualization");
+  // Get image properties
+  int width = inputImage.getWidth();
+  int height = inputImage.getHeight();
+  sl::MAT_TYPE dataType = inputImage.getDataType();
+  
+  // Determine number of channels
+  int channels = 0;
+  switch (dataType) {
+    case sl::MAT_TYPE::U8_C1:
+      channels = 1;
+      break;
+    case sl::MAT_TYPE::U8_C3:
+      channels = 3;
+      break;
+    case sl::MAT_TYPE::U8_C4:
+      channels = 4;
+      break;
+    default:
+      RCLCPP_WARN(get_logger(), "Unsupported image format for detection visualization");
+      return;
+  }
+  
+  // Create a copy of the image data
+  size_t dataSize = width * height * channels;
+  std::vector<uint8_t> imageData(dataSize);
+  
+  // Copy data from sl::Mat
+  uint8_t* slData = inputImage.getPtr<uint8_t>(sl::MEM::CPU);
+  if (slData == nullptr) {
+    RCLCPP_WARN(get_logger(), "Failed to get sl::Mat data pointer");
     return;
   }
-
-  // Draw detections on the image
-  drawDetections(cvImage, objects);
-
-  // Convert cv::Mat back to sl::Mat
-  sl::Mat annotatedSlMat;
-  sl::MAT_TYPE slType = inputImage.getDataType();
   
-  annotatedSlMat.alloc(cvImage.cols, cvImage.rows, slType, sl::MEM::CPU);
-  memcpy(annotatedSlMat.getPtr<sl::uchar1>(sl::MEM::CPU), cvImage.data, 
-         cvImage.total() * cvImage.elemSize());
-
-  // Publish the annotated image
-  publishImageWithInfo(annotatedSlMat, mPubRgbDetections, mRgbCamInfoMsg, 
-                      mDepthOptFrameId, t);
+  std::memcpy(imageData.data(), slData, dataSize);
+  
+  // Draw detections on the image data
+  drawDetectionsOnImageData(imageData, width, height, channels, objects);
+  
+  // Create a new sl::Mat with the annotated data
+  sl::Mat annotatedSlMat;
+  annotatedSlMat.alloc(width, height, dataType, sl::MEM::CPU);
+  
+  // Copy the annotated data back to sl::Mat
+  uint8_t* annotatedSlData = annotatedSlMat.getPtr<uint8_t>(sl::MEM::CPU);
+  if (annotatedSlData != nullptr) {
+    std::memcpy(annotatedSlData, imageData.data(), dataSize);
+    
+    // Publish the annotated image
+    publishImageWithInfo(annotatedSlMat, mPubRgbDetections, mRgbCamInfoMsg, 
+                        mDepthOptFrameId, t);
+  } else {
+    RCLCPP_WARN(get_logger(), "Failed to allocate annotated sl::Mat");
+  }
 }
 
 }  // namespace stereolabs

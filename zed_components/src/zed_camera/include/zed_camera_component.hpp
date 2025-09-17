@@ -21,7 +21,6 @@
 #include <unordered_set>
 #include <mmdeploy/model.h>
 #include <mmdeploy/detector.hpp>
-#include <opencv2/opencv.hpp>
 
 #include "sl_tools.hpp"
 #include "sl_types.hpp"
@@ -226,8 +225,10 @@ protected:
   void processRtRoi(rclcpp::Time t);
 
   // Detection visualization functions
-  cv::Mat slMat2cvMat(const sl::Mat & input);
-  void drawDetections(cv::Mat & image, const sl::Objects & objects);
+  void drawRectangle(std::vector<uint8_t>& data, int width, int height, int channels, 
+                    int x1, int y1, int x2, int y2, uint8_t r, uint8_t g, uint8_t b);
+  void drawDetectionsOnImageData(std::vector<uint8_t>& imageData, int width, int height, 
+                                int channels, const sl::Objects & objects);
   void publishDetectionImage(
     const sl::Mat & inputImage, const sl::Objects & objects, rclcpp::Time t);
 
