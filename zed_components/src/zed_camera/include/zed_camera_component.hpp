@@ -671,6 +671,7 @@ private:
   size_t mDisparitySubnumber = 0;
   size_t mDepthInfoSubnumber = 0;
   size_t mObjDetSubnumber = 0;
+  size_t mDetRgbSubnumber = 0;
 
   sl::Mat mMatLeft, mMatLeftRaw;
   sl::Mat mMatRight, mMatRightRaw;

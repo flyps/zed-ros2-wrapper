@@ -3456,6 +3456,7 @@ void ZedCamera::initPublishers()
     mTopicRoot + /*imuTopicRoot + "/" +*/ pressure_topic_name;
   std::string temp_topic_left = mTopicRoot + temp_topic_root + "/left";
   std::string temp_topic_right = mTopicRoot + temp_topic_root + "/right";
+  std::string detection2d_topic = mTopicRoot + "detection2d";
   // <---- Topics names definition
 
   // ----> Camera publishers
@@ -3484,7 +3485,13 @@ void ZedCamera::initPublishers()
     get_logger(),
     "Advertised on topic: " << mPubRawRgb.getInfoTopic());
   mPubDetRgb = image_transport::create_camera_publisher(
-    this, "/detections", mQos.get_rmw_qos_profile());
+    this, detection2d_topic, mQos.get_rmw_qos_profile());
+  RCLCPP_INFO_STREAM(
+    get_logger(),
+    "Advertised on topic: " << mPubDetRgb.getTopic());
+  RCLCPP_INFO_STREAM(
+    get_logger(),
+    "Advertised on topic: " << mPubDetRgb.getInfoTopic());
   mPubRawRgbGray = image_transport::create_camera_publisher(
     this, rgb_raw_gray_topic, mQos.get_rmw_qos_profile());
   RCLCPP_INFO_STREAM(
@@ -6903,7 +6910,9 @@ bool ZedCamera::areVideoDepthSubscribed()
   mConfMapSubnumber = 0;
   mDisparitySubnumber = 0;
   mDepthInfoSubnumber = 0;
+  mDetRgbSubnumber = 0;
   mObjDetSubnumber = 0;
+
 
   try {
     mRgbSubnumber = mPubRgb.getNumSubscribers();
@@ -6920,6 +6929,7 @@ bool ZedCamera::areVideoDepthSubscribed()
     mRightGrayRawSubnumber = mPubRawRightGray.getNumSubscribers();
     mStereoSubnumber = mPubStereo.getNumSubscribers();
     mStereoRawSubnumber = mPubRawStereo.getNumSubscribers();
+    mDetRgbSubnumber = mPubDetRgb.getNumSubscribers();
     mObjDetSubnumber = count_subscribers(mPubObjDet->get_topic_name());
 
     if (!mDepthDisabled) {
@@ -6940,7 +6950,7 @@ bool ZedCamera::areVideoDepthSubscribed()
          mRightRawSubnumber + mRightGraySubnumber + mRightGrayRawSubnumber +
          mStereoSubnumber + mStereoRawSubnumber + mDepthSubnumber +
          mConfMapSubnumber + mDisparitySubnumber + mDepthInfoSubnumber +
-         mObjDetSubnumber) > 0;
+         mDetRgbSubnumber + mObjDetSubnumber) > 0;
 }
 
 void ZedCamera::retrieveVideoDepth()
@@ -8210,7 +8220,9 @@ void ZedCamera::processDetectedObjects(rclcpp::Time t)
   mPubObjDet->publish(std::move(objMsg));
 
   // Publish RGB image with detections drawn
-  publishDetectionImage(mMatLeft, objects, t);
+  if (mDetRgbSubnumber > 0) {
+    publishDetectionImage(mMatLeft, objects, t);
+  }
 
   // ----> Diagnostic information update
   mObjDetElabMean_sec->addValue(odElabTimer.toc());
@@ -11060,11 +11072,11 @@ cv::Mat ZedCamera::slMat2cvMat(const sl::Mat & input) {
     default:
       break;
   }
-  
+
   if (cv_type == -1) {
     return cv::Mat();
   }
-  
+
   // Create OpenCV matrix and copy data
   return cv::Mat(input.getHeight(), input.getWidth(), cv_type, input.getPtr<sl::uchar1>(sl::MEM::CPU)).clone();
 }
@@ -11108,7 +11120,7 @@ void ZedCamera::drawDetections(cv::Mat & image, const sl::Objects & objects) {
     } else {
       label = sl::toString(obj.label);
     }
-    
+
     // Add confidence to label
     label += " " + std::to_string(static_cast<int>(obj.confidence)) + "%";
 
@@ -11116,13 +11128,13 @@ void ZedCamera::drawDetections(cv::Mat & image, const sl::Objects & objects) {
     int baseline = 0;
     cv::Size textSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 
                                        1 * 0.5, 2, &baseline);
-    
+
     // Draw label background
     cv::Point labelPos(x1, y1 - 10);
     if (labelPos.y < textSize.height) {
       labelPos.y = y1 + textSize.height + 10;
     }
-    
+
     cv::rectangle(image, 
                   cv::Point(labelPos.x, labelPos.y - textSize.height - 5),
                   cv::Point(labelPos.x + textSize.width + 5, labelPos.y + 5),
@@ -11148,15 +11160,14 @@ void ZedCamera::publishDetectionImage(const sl::Mat & inputImage, const sl::Obje
   // Convert cv::Mat back to sl::Mat
   sl::Mat annotatedSlMat;
   sl::MAT_TYPE slType = inputImage.getDataType();
-  
+
   annotatedSlMat.alloc(cvImage.cols, cvImage.rows, slType, sl::MEM::CPU);
   memcpy(annotatedSlMat.getPtr<sl::uchar1>(sl::MEM::CPU), cvImage.data, 
          cvImage.total() * cvImage.elemSize());
 
-  t = rclcpp::Time(t.seconds(), RCL_ROS_TIME);
   // Publish the annotated image
   publishImageWithInfo(annotatedSlMat, mPubDetRgb, mRgbCamInfoMsg, 
-                      mDepthOptFrameId, t);
+                       mDepthOptFrameId, t);
 }
 }  // namespace stereolabs
 
