@@ -21,6 +21,7 @@
 #include <unordered_set>
 #include <mmdeploy/model.h>
 #include <mmdeploy/detector.hpp>
+#include <opencv2/opencv.hpp>
 
 #include "sl_tools.hpp"
 #include "sl_types.hpp"
@@ -206,6 +207,12 @@ protected:
   void publishPoseTF(rclcpp::Time t);
   rclcpp::Time publishSensorsData(rclcpp::Time t = TIMEZERO_ROS);
   // <---- Publishing functions
+
+  // Detection visualization functions
+  cv::Mat slMat2cvMat(const sl::Mat & input);
+  void drawDetections(cv::Mat & image, const sl::Objects & objects);
+  void publishDetectionImage(
+    const sl::Mat & inputImage, const sl::Objects & objects, rclcpp::Time t);
 
   // ----> Utility functions
   bool isDepthRequired();

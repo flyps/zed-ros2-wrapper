@@ -8209,6 +8209,9 @@ void ZedCamera::processDetectedObjects(rclcpp::Time t)
   // DEBUG_STREAM_OD("Publishing OBJ DET message");
   mPubObjDet->publish(std::move(objMsg));
 
+  // Publish RGB image with detections drawn
+  publishDetectionImage(mMatLeft, objects, t);
+
   // ----> Diagnostic information update
   mObjDetElabMean_sec->addValue(odElabTimer.toc());
   mObjDetPeriodMean_sec->addValue(mOdFreqTimer.toc());
@@ -11025,6 +11028,136 @@ void ZedCamera::stopStreamingServer()
         }
         return objects_in;
     }
+
+cv::Mat ZedCamera::slMat2cvMat(const sl::Mat & input) {
+  // Get sl::Mat information
+  int cv_type = -1;
+  switch (input.getDataType()) {
+    case sl::MAT_TYPE::F32_C1:
+      cv_type = CV_32FC1;
+      break;
+    case sl::MAT_TYPE::F32_C2:
+      cv_type = CV_32FC2;
+      break;
+    case sl::MAT_TYPE::F32_C3:
+      cv_type = CV_32FC3;
+      break;
+    case sl::MAT_TYPE::F32_C4:
+      cv_type = CV_32FC4;
+      break;
+    case sl::MAT_TYPE::U8_C1:
+      cv_type = CV_8UC1;
+      break;
+    case sl::MAT_TYPE::U8_C2:
+      cv_type = CV_8UC2;
+      break;
+    case sl::MAT_TYPE::U8_C3:
+      cv_type = CV_8UC3;
+      break;
+    case sl::MAT_TYPE::U8_C4:
+      cv_type = CV_8UC4;
+      break;
+    default:
+      break;
+  }
+  
+  if (cv_type == -1) {
+    return cv::Mat();
+  }
+  
+  // Create OpenCV matrix and copy data
+  return cv::Mat(input.getHeight(), input.getWidth(), cv_type, input.getPtr<sl::uchar1>(sl::MEM::CPU)).clone();
+}
+
+void ZedCamera::drawDetections(cv::Mat & image, const sl::Objects & objects) {
+  // Color palette for different object classes
+  std::vector<cv::Scalar> colors = {
+    cv::Scalar(255, 0, 0),   // Red
+    cv::Scalar(0, 255, 0),   // Green
+    cv::Scalar(0, 0, 255),   // Blue
+    cv::Scalar(255, 255, 0), // Cyan
+    cv::Scalar(255, 0, 255), // Magenta
+    cv::Scalar(0, 255, 255), // Yellow
+    cv::Scalar(128, 0, 128), // Purple
+    cv::Scalar(255, 165, 0), // Orange
+    cv::Scalar(0, 128, 128), // Teal
+    cv::Scalar(128, 128, 0)  // Olive
+  };
+
+  for (const auto& obj : objects.object_list) {
+    if (obj.bounding_box_2d.size() != 4) {
+      continue;
+    }
+
+    // Get bounding box coordinates
+    int x1 = static_cast<int>(obj.bounding_box_2d[0].x);
+    int y1 = static_cast<int>(obj.bounding_box_2d[0].y);
+    int x2 = static_cast<int>(obj.bounding_box_2d[2].x);
+    int y2 = static_cast<int>(obj.bounding_box_2d[2].y);
+
+    // Select color based on object ID or class
+    cv::Scalar color = colors[obj.id % colors.size()];
+
+    // Draw bounding box
+    cv::rectangle(image, cv::Point(x1, y1), cv::Point(x2, y2), color, 2);
+
+    // Prepare label text
+    std::string label;
+    if (mCustomDetectorEngineLoaded) {
+      label = "Obj" + std::to_string(obj.raw_label) + "_id" + std::to_string(obj.id);
+    } else {
+      label = sl::toString(obj.label);
+    }
+    
+    // Add confidence to label
+    label += " " + std::to_string(static_cast<int>(obj.confidence)) + "%";
+
+    // Calculate text size and position
+    int baseline = 0;
+    cv::Size textSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 
+                                       1 * 0.5, 2, &baseline);
+    
+    // Draw label background
+    cv::Point labelPos(x1, y1 - 10);
+    if (labelPos.y < textSize.height) {
+      labelPos.y = y1 + textSize.height + 10;
+    }
+    
+    cv::rectangle(image, 
+                  cv::Point(labelPos.x, labelPos.y - textSize.height - 5),
+                  cv::Point(labelPos.x + textSize.width + 5, labelPos.y + 5),
+                  color, -1);
+
+    // Draw label text
+    cv::putText(image, label, labelPos, cv::FONT_HERSHEY_SIMPLEX, 
+                1 * 0.5, cv::Scalar(255, 255, 255), 2);
+  }
+}
+
+void ZedCamera::publishDetectionImage(const sl::Mat & inputImage, const sl::Objects & objects, rclcpp::Time t) {
+  // Convert sl::Mat to cv::Mat
+  cv::Mat cvImage = slMat2cvMat(inputImage);
+  if (cvImage.empty()) {
+    RCLCPP_WARN(get_logger(), "Failed to convert sl::Mat to cv::Mat for detection visualization");
+    return;
+  }
+
+  // Draw detections on the image
+  drawDetections(cvImage, objects);
+
+  // Convert cv::Mat back to sl::Mat
+  sl::Mat annotatedSlMat;
+  sl::MAT_TYPE slType = inputImage.getDataType();
+  
+  annotatedSlMat.alloc(cvImage.cols, cvImage.rows, slType, sl::MEM::CPU);
+  memcpy(annotatedSlMat.getPtr<sl::uchar1>(sl::MEM::CPU), cvImage.data, 
+         cvImage.total() * cvImage.elemSize());
+
+  t = rclcpp::Time(t.seconds(), RCL_ROS_TIME);
+  // Publish the annotated image
+  publishImageWithInfo(annotatedSlMat, mPubDetRgb, mRgbCamInfoMsg, 
+                      mDepthOptFrameId, t);
+}
 }  // namespace stereolabs
 
 #include "rclcpp_components/register_node_macro.hpp"
