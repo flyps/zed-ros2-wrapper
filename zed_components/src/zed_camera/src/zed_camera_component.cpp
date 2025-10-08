@@ -3483,6 +3483,8 @@ void ZedCamera::initPublishers()
   RCLCPP_INFO_STREAM(
     get_logger(),
     "Advertised on topic: " << mPubRawRgb.getInfoTopic());
+  mPubDetRgb = image_transport::create_camera_publisher(
+    this, "/detections", mQos.get_rmw_qos_profile());
   mPubRawRgbGray = image_transport::create_camera_publisher(
     this, rgb_raw_gray_topic, mQos.get_rmw_qos_profile());
   RCLCPP_INFO_STREAM(
@@ -7125,6 +7127,10 @@ void ZedCamera::publishVideoDepth(rclcpp::Time & out_pub_ts)
     publishImageWithInfo(
       mMatLeft, mPubLeft, mLeftCamInfoMsg,
       mLeftCamOptFrameId, out_pub_ts);
+    publishImageWithInfo(
+      mMatLeft, mPubDetRgb, mLeftCamInfoMsg,
+      mLeftCamOptFrameId, out_pub_ts
+    );
   }
 
   if (mRgbSubnumber > 0) {

@@ -609,6 +609,7 @@ private:
   image_transport::CameraPublisher mPubRawRightGray;
 
   image_transport::CameraPublisher mPubRoiMask;
+  image_transport::CameraPublisher mPubDetRgb;
 
   imagePub mPubConfMap;
   disparityPub mPubDisparity;
