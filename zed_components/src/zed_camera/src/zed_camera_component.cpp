@@ -6961,7 +6961,7 @@ void ZedCamera::retrieveVideoDepth()
   // ----> Retrieve all required data
   DEBUG_STREAM_VD("Retrieving Video Data");
 
-  if (mRgbSubnumber + mLeftSubnumber + mStereoSubnumber + mObjDetSubnumber > 0) {
+  if (mRgbSubnumber + mLeftSubnumber + mStereoSubnumber + mObjDetSubnumber + mDetRgbSubnumber > 0) {
     retrieved |=
       sl::ERROR_CODE::SUCCESS ==
       mZed->retrieveImage(mMatLeft, sl::VIEW::LEFT, sl::MEM::CPU, mMatResol);
@@ -8058,7 +8058,7 @@ void ZedCamera::processDetectedObjects(rclcpp::Time t)
     return;
   }
 
-  if (objdet_sub_count < 1) {
+  if (objdet_sub_count < 1 && mDetRgbSubnumber < 1) {
     mObjDetSubscribed = false;
     return;
   }
