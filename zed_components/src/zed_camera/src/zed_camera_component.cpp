@@ -7137,10 +7137,6 @@ void ZedCamera::publishVideoDepth(rclcpp::Time & out_pub_ts)
     publishImageWithInfo(
       mMatLeft, mPubLeft, mLeftCamInfoMsg,
       mLeftCamOptFrameId, out_pub_ts);
-    publishImageWithInfo(
-      mMatLeft, mPubDetRgb, mLeftCamInfoMsg,
-      mLeftCamOptFrameId, out_pub_ts
-    );
   }
 
   if (mRgbSubnumber > 0) {
