@@ -11162,8 +11162,13 @@ void ZedCamera::publishDetectionImage(const sl::Mat & inputImage, const sl::Obje
   sl::MAT_TYPE slType = inputImage.getDataType();
 
   annotatedSlMat.alloc(cvImage.cols, cvImage.rows, slType, sl::MEM::CPU);
-  memcpy(annotatedSlMat.getPtr<sl::uchar1>(sl::MEM::CPU), cvImage.data, 
-         cvImage.total() * cvImage.elemSize());
+  try {
+    memcpy(annotatedSlMat.getPtr<sl::uchar1>(sl::MEM::CPU), cvImage.data, 
+           cvImage.total() * cvImage.elemSize());
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR_STREAM(get_logger(), "Exception during cv::Mat to sl::Mat conversion: " << e.what());
+    return;
+  }
 
   // Publish the annotated image
   publishImageWithInfo(annotatedSlMat, mPubDetRgb, mRgbCamInfoMsg, 
